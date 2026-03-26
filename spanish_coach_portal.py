@@ -1412,11 +1412,12 @@ def run_submission():
             attach_paths.append(folder / f"certificate_{i}{cert_ext}")
 
         email_sent = True
+        email_error = ""
         try:
             send_email(analysis, html_body, folder, attach_paths)
         except Exception as e:
             email_sent = False
-            st.warning(f"⚠️ Email could not be sent: {e}. Files have been saved to {folder}")
+            email_error = str(e)
 
         update_status("✅ Submission complete!", 1.0)
 
@@ -1428,6 +1429,7 @@ def run_submission():
         st.session_state["_success_name"]  = state["full_name"]
         st.session_state["_success_email"] = state["email"]
         st.session_state["_email_sent"]    = email_sent
+        st.session_state["_email_error"]   = email_error
 
         # Reset step to trigger success render
         go_to(-1)
@@ -1445,6 +1447,8 @@ def run_submission():
 def render_success():
     name  = st.session_state.get("_success_name", "Coach")
     email = st.session_state.get("_success_email", "")
+    email_sent = st.session_state.get("_email_sent", False)
+    email_error = st.session_state.get("_email_error", "")
 
     st.markdown(f"""
     <div class="success-box">
@@ -1454,9 +1458,13 @@ def render_success():
             Your application has been received.<br>
             Our team will review it and get back to you within <strong>5–7 business days</strong>.
         </p>
-        {"<p>📧 A confirmation has been sent to <strong>" + email + "</strong></p>" if email else ""}
+        {"<p>📧 A confirmation has been sent to <strong>" + email + "</strong></p>" if email and email_sent else ""}
     </div>
     """, unsafe_allow_html=True)
+
+    if not email_sent and email_error:
+        st.error(f"⚠️ Email notification could not be sent: {email_error}")
+        st.info("Your application was still saved. The team will review it manually.")
 
     st.markdown("")
     st.markdown("We look forward to potentially welcoming you to the Talk in Spanish coaching team. 🇪🇸")
