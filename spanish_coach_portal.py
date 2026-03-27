@@ -1,5 +1,5 @@
 # =============================================================================
-# Spanish Coach Application Portal — Talk in Spanish
+# Spanish Coach Application Portal — My Daily Spanish
 # Coach-facing multi-step application wizard
 # Sends analysis email to admin upon submission
 # =============================================================================
@@ -21,7 +21,7 @@ from pathlib import Path
 # Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Spanish Coach Application — Talk in Spanish",
+    page_title="Spanish Coach Application — My Daily Spanish",
     page_icon="🇪🇸",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -401,7 +401,7 @@ def run_claude_analysis(state: dict, cv_text: str, cert_texts: list[str]) -> dic
     ])
     certs_combined = "\n\n".join(cert_texts) if cert_texts else "No certificate text extracted."
 
-    prompt = f"""You are an expert hiring manager for Talk in Spanish, an online Spanish coaching platform.
+    prompt = f"""You are an expert hiring manager for My Daily Spanish, an online Spanish coaching platform.
 
 Analyse the following Spanish coach application and return a JSON object with your assessment.
 
@@ -646,7 +646,7 @@ def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_
 
   </div>
   <div class="footer">
-    This email was generated automatically by the Talk in Spanish Coach Portal.
+    This email was generated automatically by the My Daily Spanish Coach Portal.
     Please do not reply to this email.
   </div>
 </div>
@@ -692,17 +692,17 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
 <body style="font-family:Arial,sans-serif;color:#333;margin:0;padding:20px;background:#f5f5f5;">
 <div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
   <div style="background:linear-gradient(135deg,#c0392b,#922b21);color:white;padding:24px 28px;">
-    <h1 style="margin:0;font-size:1.4rem;">Talk in Spanish</h1>
+    <h1 style="margin:0;font-size:1.4rem;">My Daily Spanish</h1>
     <p style="margin:4px 0 0;opacity:0.9;">Coach Application Confirmation</p>
   </div>
   <div style="padding:24px 28px;">
     <p>Dear <strong>{applicant_name}</strong>,</p>
-    <p>Thank you for submitting your application to become a Spanish coach with Talk in Spanish!</p>
+    <p>Thank you for submitting your application to become a Spanish coach with My Daily Spanish!</p>
     <p>We have received your application and all accompanying documents. Our team will review everything
     and get back to you within <strong>5\u20137 business days</strong>.</p>
     <p>If you have any questions in the meantime, please contact us at
     <a href="mailto:carmina@talkinfrench.com">carmina@talkinfrench.com</a>.</p>
-    <p style="margin-top:24px;">Best regards,<br><strong>The Talk in Spanish Team</strong></p>
+    <p style="margin-top:24px;">Best regards,<br><strong>The My Daily Spanish Team</strong></p>
   </div>
   <div style="background:#f8f8f8;padding:14px 28px;font-size:0.8rem;color:#888;border-top:1px solid #eee;">
     This is an automated confirmation. Please do not reply to this email.
@@ -764,7 +764,7 @@ def check_completeness(state: dict) -> list[str]:
 # ===========================================================================
 
 def render_step_0():
-    show_header("🇪🇸 Spanish Coach Application", "Talk in Spanish")
+    show_header("🇪🇸 Spanish Coach Application", "My Daily Spanish")
 
     st.markdown("""
     <div class="section-card">
@@ -1733,7 +1733,7 @@ def render_success():
         st.info("Your application was still saved. The team will review it manually.")
 
     st.markdown("")
-    st.markdown("We look forward to potentially welcoming you to the Talk in Spanish coaching team. 🇪🇸")
+    st.markdown("We look forward to potentially welcoming you to the My Daily Spanish coaching team. 🇪🇸")
 
     if st.button("↩ Start a new application"):
         for k in list(st.session_state.keys()):
