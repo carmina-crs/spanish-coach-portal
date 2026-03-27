@@ -213,7 +213,7 @@ DEFAULTS = {
     # Step 7 – Documents
     "cv_file": None, "cert_files": [], "photo_file": None,
     # Step 8 – Videos
-    "video_mode": "Upload two separate videos",
+    "video_mode": "Upload two separate videos (Spanish + English)",
     "video_spanish": None, "video_english": None,
     "video_combined": None, "video_link": "",
     # Step 9 – Quiz
