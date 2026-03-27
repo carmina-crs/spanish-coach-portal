@@ -328,7 +328,19 @@ def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
     from googleapiclient.http import MediaFileUpload
     import io as _io
 
-    creds_info = json.loads(GOOGLE_SA_JSON)
+    # Fix private key newlines that may have been stripped during copy-paste
+    sa_json = GOOGLE_SA_JSON
+    creds_info = json.loads(sa_json)
+    if "private_key" in creds_info:
+        pk = creds_info["private_key"]
+        # If \\n was stored instead of real newlines, fix it
+        if "\\n" in pk and "\n" not in pk:
+            pk = pk.replace("\\n", "\n")
+        # If newlines were completely stripped, try to reconstruct
+        if "-----BEGIN PRIVATE KEY-----" in pk and "\n" not in pk:
+            pk = pk.replace("-----BEGIN PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----\n")
+            pk = pk.replace("-----END PRIVATE KEY-----", "\n-----END PRIVATE KEY-----\n")
+        creds_info["private_key"] = pk
     creds = service_account.Credentials.from_service_account_info(
         creds_info, scopes=["https://www.googleapis.com/auth/drive"]
     )
@@ -1604,7 +1616,8 @@ def run_submission():
                 update_status("☁️ Uploading files to Google Drive...", 0.60)
                 drive_link = upload_to_google_drive(folder, state["full_name"])
             except Exception as e:
-                st.warning(f"⚠️ Google Drive upload failed: {e}. Attaching files to email instead.")
+                st.warning(f"⚠️ Google Drive upload failed: {e}")
+                st.code(traceback.format_exc())
                 drive_link = ""
 
         # 5. Build file list for email
