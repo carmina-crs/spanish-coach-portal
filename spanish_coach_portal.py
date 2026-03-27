@@ -329,25 +329,70 @@ def save_submission_files(state: dict) -> Path:
 # Google Drive upload (optional)
 # ---------------------------------------------------------------------------
 
-def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
-    """Upload all files from folder_path to Google Drive. Returns shareable folder URL."""
+def _get_drive_service():
+    """Build and return a Google Drive API service using service account credentials."""
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-
-    # Get credentials directly from Streamlit secrets section (avoids JSON parsing issues)
     creds_info = dict(st.secrets["google_service_account"])
     creds = service_account.Credentials.from_service_account_info(
         creds_info, scopes=["https://www.googleapis.com/auth/drive"]
     )
-    service = build("drive", "v3", credentials=creds)
+    return build("drive", "v3", credentials=creds)
 
-    # Create subfolder
+
+def _get_or_create_root_folder(service) -> str:
+    """Get the root 'Spanish Coach Applications' folder owned by the service account.
+    Creates it if it doesn't exist, and shares it with the admin."""
+    folder_name = "Spanish Coach Applications"
+
+    # Check if we already created this folder
+    results = service.files().list(
+        q=f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        pageSize=1, fields="files(id,name)"
+    ).execute()
+    files = results.get("files", [])
+
+    if files:
+        return files[0]["id"]
+
+    # Create the folder (owned by service account)
+    folder_meta = {
+        "name": folder_name,
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    folder = service.files().create(body=folder_meta, fields="id").execute()
+    folder_id = folder["id"]
+
+    # Share with admin
+    service.permissions().create(
+        fileId=folder_id,
+        body={"type": "user", "role": "writer", "emailAddress": ADMIN_EMAIL},
+    ).execute()
+
+    # Also share with anyone who has the link (for team access)
+    service.permissions().create(
+        fileId=folder_id,
+        body={"type": "anyone", "role": "reader"},
+    ).execute()
+
+    return folder_id
+
+
+def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
+    """Upload all files from folder_path to Google Drive. Returns shareable folder URL."""
+    from googleapiclient.http import MediaFileUpload
+
+    service = _get_drive_service()
+
+    # Get or create root folder (owned by service account, shared with admin)
+    root_folder_id = _get_or_create_root_folder(service)
+
+    # Create subfolder for this coach
     date_str = datetime.now().strftime("%Y-%m-%d")
     subfolder_meta = {
         "name": f"{coach_name} - {date_str}",
         "mimeType": "application/vnd.google-apps.folder",
-        "parents": [GOOGLE_DRIVE_FOLDER],
+        "parents": [root_folder_id],
     }
     subfolder = service.files().create(body=subfolder_meta, fields="id").execute()
     subfolder_id = subfolder["id"]
