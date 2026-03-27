@@ -1,0 +1,157 @@
+{
+  "steps": {
+    "3": {
+      "title": "Teaching Philosophy & Methods",
+      "questions": [
+        {
+          "key": "assess_proficiency",
+          "label": "1. How do you assess a student's proficiency in Spanish?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "tailor_lessons",
+          "label": "2. How do you tailor lessons for different learning styles and levels?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "successful_lesson",
+          "label": "3. Give an example of a particularly successful lesson or course you've delivered.",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "engaging_online",
+          "label": "4. How do you keep online lessons engaging and interactive?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "student_duration",
+          "label": "5. How long do students typically stay with you?",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "motivate_struggling",
+          "label": "6. How do you motivate students who are struggling or losing interest?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "enjoy_process",
+          "label": "7. How do you ensure students are both learning and enjoying the process?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        }
+      ]
+    },
+    "4": {
+      "title": "Technology & Assessment",
+      "questions": [
+        {
+          "key": "multimedia",
+          "label": "1. Do you incorporate multimedia and cultural content into your lessons?",
+          "type": "radio",
+          "options": ["Yes", "No", "Sometimes"],
+          "required": true
+        },
+        {
+          "key": "multimedia_examples",
+          "label": "2. If yes, give examples of multimedia/cultural content you use.",
+          "type": "textarea",
+          "required": false,
+          "height": 80
+        },
+        {
+          "key": "tech_setup",
+          "label": "3. Do you have good microphone, webcam, stable internet, and quiet workspace?",
+          "type": "radio",
+          "options": ["Yes", "No", "Some but not all"],
+          "required": true
+        },
+        {
+          "key": "software",
+          "label": "4. Which software do you use for online classes?",
+          "type": "multiselect",
+          "options": ["Zoom", "Skype", "Google Meet", "Teams", "Other"],
+          "required": true
+        },
+        {
+          "key": "software_other",
+          "label": "5. If 'Other', please specify:",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "assess_progress",
+          "label": "6. How do you assess students' progress, and how often?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "feedback_style",
+          "label": "7. How do you provide constructive and motivating feedback?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "adapt_teaching",
+          "label": "8. Share an example where you adapted your approach for a challenging student.",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "cultural_lesson",
+          "label": "9. Give an example of a cultural lesson essential for Spanish learners.",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        }
+      ]
+    },
+    "5": {
+      "title": "Professional Development & Scenarios",
+      "questions": [
+        {
+          "key": "improve_skills",
+          "label": "1. What steps do you take to continuously improve your teaching skills?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "excited_areas",
+          "label": "2. Are there areas in Spanish teaching you're currently working on or excited to improve?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "grammar_error",
+          "label": "3. A student consistently makes the same grammatical error. How would you address it?",
+          "type": "textarea",
+          "required": true,
+          "height": 100
+        },
+        {
+          "key": "lesson_plan_levels",
+          "label": "4. How would you structure a lesson plan for a complete beginner vs. an advanced student?",
+          "type": "textarea",
+          "required": true,
+          "height": 120
+        }
+      ]
+    }
+  }
+}

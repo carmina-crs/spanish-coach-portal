@@ -133,6 +133,30 @@ SENDER_EMAIL    = get_secret("sender_email")
 SENDER_PASSWORD = get_secret("sender_password")
 ADMIN_EMAIL     = "carmina@talkinfrench.com"
 
+# Google Drive config (optional — falls back to email attachments if not set)
+GOOGLE_SA_JSON      = get_secret("google_service_account_json", "")
+GOOGLE_DRIVE_FOLDER = get_secret("google_drive_folder_id", "")
+
+# Questions config URL (optional — for editing questions via GitHub)
+QUESTIONS_CONFIG_URL = get_secret("questions_config_url", "")
+ADMIN_MODE = get_secret("admin_mode", "") == "true"
+
+@st.cache_data(ttl=300)
+def load_questions_config():
+    """Load questions config from remote URL or local file."""
+    if QUESTIONS_CONFIG_URL:
+        import requests as _req
+        try:
+            resp = _req.get(QUESTIONS_CONFIG_URL, timeout=10)
+            if resp.ok:
+                return resp.json()
+        except Exception:
+            pass
+    config_path = Path(__file__).parent / "questions_config.json"
+    if config_path.exists():
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    return None
+
 # File storage — works on Windows desktop AND cloud
 import tempfile as _tf
 _local_dir = Path(r"C:\Users\USER\Desktop\Spanish Coach Applications")
@@ -294,6 +318,49 @@ def save_submission_files(state: dict) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# Google Drive upload (optional)
+# ---------------------------------------------------------------------------
+
+def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
+    """Upload all files from folder_path to Google Drive. Returns shareable folder URL."""
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    import io as _io
+
+    creds_info = json.loads(GOOGLE_SA_JSON)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_info, scopes=["https://www.googleapis.com/auth/drive"]
+    )
+    service = build("drive", "v3", credentials=creds)
+
+    # Create subfolder
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    subfolder_meta = {
+        "name": f"{coach_name} - {date_str}",
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [GOOGLE_DRIVE_FOLDER],
+    }
+    subfolder = service.files().create(body=subfolder_meta, fields="id").execute()
+    subfolder_id = subfolder["id"]
+
+    # Upload each file
+    for file_path in folder_path.iterdir():
+        if file_path.is_file():
+            media = MediaFileUpload(str(file_path), resumable=True)
+            file_meta = {"name": file_path.name, "parents": [subfolder_id]}
+            service.files().create(body=file_meta, media_body=media, fields="id").execute()
+
+    # Make subfolder viewable by anyone with link
+    service.permissions().create(
+        fileId=subfolder_id,
+        body={"type": "anyone", "role": "reader"},
+    ).execute()
+
+    return f"https://drive.google.com/drive/folders/{subfolder_id}"
+
+
+# ---------------------------------------------------------------------------
 # Claude analysis
 # ---------------------------------------------------------------------------
 
@@ -412,13 +479,13 @@ Return ONLY a valid JSON object (no markdown, no extra text) with exactly these 
   "concerns": ["", ""],
   "missing_elements": [""],
   "overall_score": 0,
-  "verdict": "HIRE / CONSIDER / DO NOT HIRE",
+  "verdict": "STRONGLY RECOMMENDED / RECOMMENDED / NEEDS FURTHER REVIEW / NOT RECOMMENDED",
   "verdict_reason": "",
   "summary": "",
   "recommended_action": ""
 }}
 
-Score out of 100. Verdict: HIRE (75+), CONSIDER (50-74), DO NOT HIRE (<50).
+Score out of 100. Verdict: STRONGLY RECOMMENDED (85-100), RECOMMENDED (70-84), NEEDS FURTHER REVIEW (50-69), NOT RECOMMENDED (0-49).
 Be honest and thorough. Flag anything missing, vague, or concerning."""
 
     message = client.messages.create(
@@ -440,11 +507,16 @@ Be honest and thorough. Flag anything missing, vague, or concerning."""
 # Email sender
 # ---------------------------------------------------------------------------
 
-def build_email_html(analysis: dict, folder: Path, files_list: list[str]) -> str:
-    verdict = analysis.get("verdict", "CONSIDER")
+def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_link: str = "") -> str:
+    verdict = analysis.get("verdict", "NEEDS FURTHER REVIEW")
     score   = analysis.get("overall_score", 0)
 
-    verdict_color = {"HIRE": "#27ae60", "CONSIDER": "#f39c12", "DO NOT HIRE": "#e74c3c"}.get(verdict, "#888")
+    verdict_color = {
+        "STRONGLY RECOMMENDED": "#27ae60",
+        "RECOMMENDED": "#2ecc71",
+        "NEEDS FURTHER REVIEW": "#f39c12",
+        "NOT RECOMMENDED": "#e74c3c",
+    }.get(verdict, "#888")
 
     strengths_html  = "".join(f"<li>{s}</li>" for s in analysis.get("strengths", []))
     concerns_html   = "".join(f"<li>{c}</li>" for c in analysis.get("concerns", []))
@@ -542,8 +614,8 @@ def build_email_html(analysis: dict, folder: Path, files_list: list[str]) -> str
       {analysis.get('recommended_action','')}
     </p>
 
-    <h3>Files Saved</h3>
-    <p>Location: <code>{folder}</code></p>
+    <h3>Files</h3>
+    {"<p style='text-align:center;margin:12px 0 16px;'><a href='" + drive_link + "' style='display:inline-block;background:#c0392b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;'>View All Files on Google Drive</a></p>" if drive_link else "<p>Location: <code>" + str(folder) + "</code></p>"}
     <ul>{files_items}</ul>
 
   </div>
@@ -562,7 +634,7 @@ def send_email(analysis: dict, html_body: str, folder: Path, attach_paths: list[
     msg = MIMEMultipart("mixed")
     msg["From"]    = SENDER_EMAIL
     msg["To"]      = ADMIN_EMAIL
-    verdict        = analysis.get("verdict", "CONSIDER")
+    verdict        = analysis.get("verdict", "NEEDS FURTHER REVIEW")
     coach_name     = analysis.get("coach_name", "Unknown")
     msg["Subject"] = f"🇪🇸 New Spanish Coach Application — {coach_name} — {verdict}"
 
@@ -580,6 +652,43 @@ def send_email(analysis: dict, html_body: str, folder: Path, attach_paths: list[
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, ADMIN_EMAIL, msg.as_string())
+
+
+def send_applicant_confirmation(applicant_email: str, applicant_name: str):
+    """Send a simple confirmation email to the applicant."""
+    msg = MIMEMultipart("alternative")
+    msg["From"]    = SENDER_EMAIL
+    msg["To"]      = applicant_email
+    msg["Subject"] = "Your Spanish Coach Application \u2014 Received"
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;color:#333;margin:0;padding:20px;background:#f5f5f5;">
+<div style="max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+  <div style="background:linear-gradient(135deg,#c0392b,#922b21);color:white;padding:24px 28px;">
+    <h1 style="margin:0;font-size:1.4rem;">Talk in Spanish</h1>
+    <p style="margin:4px 0 0;opacity:0.9;">Coach Application Confirmation</p>
+  </div>
+  <div style="padding:24px 28px;">
+    <p>Dear <strong>{applicant_name}</strong>,</p>
+    <p>Thank you for submitting your application to become a Spanish coach with Talk in Spanish!</p>
+    <p>We have received your application and all accompanying documents. Our team will review everything
+    and get back to you within <strong>5\u20137 business days</strong>.</p>
+    <p>If you have any questions in the meantime, please contact us at
+    <a href="mailto:carmina@talkinfrench.com">carmina@talkinfrench.com</a>.</p>
+    <p style="margin-top:24px;">Best regards,<br><strong>The Talk in Spanish Team</strong></p>
+  </div>
+  <div style="background:#f8f8f8;padding:14px 28px;font-size:0.8rem;color:#888;border-top:1px solid #eee;">
+    This is an automated confirmation. Please do not reply to this email.
+  </div>
+</div>
+</body></html>"""
+
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, applicant_email, msg.as_string())
 
 
 # ---------------------------------------------------------------------------
@@ -835,11 +944,92 @@ def render_step_2():
 
 
 # ---------------------------------------------------------------------------
+# Dynamic step renderer for config-driven steps (3, 4, 5)
+# ---------------------------------------------------------------------------
 
-def render_step_3():
-    show_header("🇪🇸 Spanish Coach Application")
+def render_dynamic_step(step_num: int):
+    """Render a questionnaire step from questions_config.json."""
+    config = load_questions_config()
+    step_cfg = config["steps"][str(step_num)] if config else None
+
+    if step_cfg is None:
+        # Fallback to hardcoded renderers
+        _fallback = {3: _render_step_3_hardcoded, 4: _render_step_4_hardcoded, 5: _render_step_5_hardcoded}
+        _fallback[step_num]()
+        return
+
+    prev_step = step_num - 1
+    next_step = step_num + 1
+    title = step_cfg["title"]
+    questions = step_cfg["questions"]
+
+    show_header("\U0001f1ea\U0001f1f8 Spanish Coach Application")
+    show_step_pill(step_num)
+    st.subheader(f"Step {step_num} \u2014 {title}")
+
+    with st.form(f"form_step{step_num}"):
+        values = {}
+        for q in questions:
+            key = q["key"]
+            label = q["label"] + (" *" if q.get("required") else "")
+            qtype = q.get("type", "textarea")
+            help_text = q.get("help", None)
+
+            if qtype == "textarea":
+                values[key] = st.text_area(label, value=st.session_state.get(key, ""),
+                                            height=q.get("height", 100), help=help_text)
+            elif qtype == "text":
+                values[key] = st.text_input(label, value=st.session_state.get(key, ""), help=help_text)
+            elif qtype == "radio":
+                options = q.get("options", ["Yes", "No"])
+                current = st.session_state.get(key, options[0])
+                idx = options.index(current) if current in options else 0
+                values[key] = st.radio(label, options, index=idx, horizontal=True, help=help_text)
+            elif qtype == "multiselect":
+                options = q.get("options", [])
+                current = st.session_state.get(key, [])
+                values[key] = st.multiselect(label, options,
+                                              default=[s for s in current if s in options], help=help_text)
+            elif qtype == "number":
+                values[key] = st.number_input(label, min_value=q.get("min", 0),
+                                               max_value=q.get("max", 100),
+                                               value=st.session_state.get(key, 0), help=help_text)
+
+        submitted = st.form_submit_button("Next \u2192", type="primary", use_container_width=True)
+
+    if submitted:
+        # Count required text fields that are filled
+        required_fields = [q for q in questions if q.get("required")]
+        text_fields = [q for q in required_fields if q["type"] in ("textarea", "text")]
+        filled = sum(1 for q in text_fields if str(values.get(q["key"], "")).strip())
+        total_text = len(text_fields) if text_fields else 1
+
+        # Check multiselect required fields
+        multiselect_ok = True
+        for q in required_fields:
+            if q["type"] == "multiselect" and not values.get(q["key"]):
+                multiselect_ok = False
+                st.error(f"Please select at least one option for: {q['label']}")
+
+        if filled / total_text < 0.70:
+            st.error("Please complete at least 70% of the required fields in this section.")
+        elif not multiselect_ok:
+            pass  # error already shown
+        else:
+            st.session_state.update(values)
+            go_to(next_step); st.rerun()
+
+    if st.button("\u2190 Back", key=f"back{step_num}"):
+        go_to(prev_step); st.rerun()
+
+
+# ---------------------------------------------------------------------------
+
+def _render_step_3_hardcoded():
+    """Original hardcoded step 3 (fallback)."""
+    show_header("\U0001f1ea\U0001f1f8 Spanish Coach Application")
     show_step_pill(3)
-    st.subheader("Step 3 — Teaching Philosophy & Methods")
+    st.subheader("Step 3 \u2014 Teaching Philosophy & Methods")
 
     with st.form("form_step3"):
         assess_proficiency = st.text_area("1. How do you assess a student's proficiency in Spanish? *",
@@ -880,7 +1070,8 @@ def render_step_3():
 
 # ---------------------------------------------------------------------------
 
-def render_step_4():
+def _render_step_4_hardcoded():
+    """Original hardcoded step 4 (fallback)."""
     show_header("🇪🇸 Spanish Coach Application")
     show_step_pill(4)
     st.subheader("Step 4 — Technology & Assessment")
@@ -939,7 +1130,8 @@ def render_step_4():
 
 # ---------------------------------------------------------------------------
 
-def render_step_5():
+def _render_step_5_hardcoded():
+    """Original hardcoded step 5 (fallback)."""
     show_header("🇪🇸 Spanish Coach Application")
     show_step_pill(5)
     st.subheader("Step 5 — Professional Development & Scenarios")
@@ -970,6 +1162,20 @@ def render_step_5():
 
     if st.button("← Back", key="back5"):
         go_to(4); st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Wrapper functions for dynamic steps 3, 4, 5
+# ---------------------------------------------------------------------------
+
+def render_step_3():
+    render_dynamic_step(3)
+
+def render_step_4():
+    render_dynamic_step(4)
+
+def render_step_5():
+    render_dynamic_step(5)
 
 
 # ---------------------------------------------------------------------------
@@ -1385,31 +1591,42 @@ def run_submission():
                 "concerns": ["AI analysis could not be completed."],
                 "missing_elements": [],
                 "overall_score": 0,
-                "verdict": "CONSIDER",
+                "verdict": "NEEDS FURTHER REVIEW",
                 "verdict_reason": "Manual review required — AI analysis failed.",
                 "summary": "Application received. Manual review needed.",
                 "recommended_action": "Review application manually.",
             }
 
-        # 4. Build file list for email
+        # 4. Upload to Google Drive (if configured)
+        drive_link = ""
+        if GOOGLE_SA_JSON and GOOGLE_DRIVE_FOLDER:
+            try:
+                update_status("☁️ Uploading files to Google Drive...", 0.60)
+                drive_link = upload_to_google_drive(folder, state["full_name"])
+            except Exception as e:
+                st.warning(f"⚠️ Google Drive upload failed: {e}. Attaching files to email instead.")
+                drive_link = ""
+
+        # 5. Build file list for email
         files_list = [f.name for f in [state["cv_file"]] if f]
         files_list += [f.name for f in state["cert_files"]]
-        if state["video_spanish"]: files_list.append(state["video_spanish"].name + " (video — not attached)")
-        if state["video_english"]: files_list.append(state["video_english"].name + " (video — not attached)")
+        if state["video_spanish"]: files_list.append(state["video_spanish"].name)
+        if state["video_english"]: files_list.append(state["video_english"].name)
         files_list.append("submission_data.json")
 
-        # 5. Build and send email
-        update_status("📧 Sending email to admin...", 0.75)
-        html_body = build_email_html(analysis, folder, files_list)
+        # 6. Build and send email
+        update_status("📧 Sending email to admin...", 0.80)
+        html_body = build_email_html(analysis, folder, files_list, drive_link=drive_link)
 
-        # Attachments: CV + certificates only (no videos)
+        # Attachments: if Drive upload succeeded, no attachments needed; otherwise CV + certs only
         attach_paths = []
-        if state["cv_file"]:
-            cv_ext  = Path(state["cv_file"].name).suffix
-            attach_paths.append(folder / f"cv{cv_ext}")
-        for i in range(1, len(state["cert_files"]) + 1):
-            cert_ext = Path(state["cert_files"][i-1].name).suffix
-            attach_paths.append(folder / f"certificate_{i}{cert_ext}")
+        if not drive_link:
+            if state["cv_file"]:
+                cv_ext  = Path(state["cv_file"].name).suffix
+                attach_paths.append(folder / f"cv{cv_ext}")
+            for i in range(1, len(state["cert_files"]) + 1):
+                cert_ext = Path(state["cert_files"][i-1].name).suffix
+                attach_paths.append(folder / f"certificate_{i}{cert_ext}")
 
         email_sent = True
         email_error = ""
@@ -1418,6 +1635,12 @@ def run_submission():
         except Exception as e:
             email_sent = False
             email_error = str(e)
+
+        # Send confirmation email to applicant (non-blocking)
+        try:
+            send_applicant_confirmation(state["email"], state["full_name"])
+        except Exception:
+            pass  # Don't block submission if applicant email fails
 
         update_status("✅ Submission complete!", 1.0)
 
@@ -1490,6 +1713,13 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         return
+
+    # Admin sidebar
+    if ADMIN_MODE:
+        with st.sidebar:
+            st.markdown("### Admin Tools")
+            config_url = QUESTIONS_CONFIG_URL if QUESTIONS_CONFIG_URL else "Not configured"
+            st.markdown(f"**Edit questions:** [questions_config.json]({config_url})" if QUESTIONS_CONFIG_URL else "**Edit questions:** Set `questions_config_url` secret to a GitHub raw URL")
 
     step = st.session_state.get("step", 0)
 
