@@ -334,21 +334,9 @@ def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
-    import io as _io
 
-    # Fix private key newlines that may have been stripped during copy-paste
-    sa_json = GOOGLE_SA_JSON
-    creds_info = json.loads(sa_json)
-    if "private_key" in creds_info:
-        pk = creds_info["private_key"]
-        # If \\n was stored instead of real newlines, fix it
-        if "\\n" in pk and "\n" not in pk:
-            pk = pk.replace("\\n", "\n")
-        # If newlines were completely stripped, try to reconstruct
-        if "-----BEGIN PRIVATE KEY-----" in pk and "\n" not in pk:
-            pk = pk.replace("-----BEGIN PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----\n")
-            pk = pk.replace("-----END PRIVATE KEY-----", "\n-----END PRIVATE KEY-----\n")
-        creds_info["private_key"] = pk
+    # Get credentials directly from Streamlit secrets section (avoids JSON parsing issues)
+    creds_info = dict(st.secrets["google_service_account"])
     creds = service_account.Credentials.from_service_account_info(
         creds_info, scopes=["https://www.googleapis.com/auth/drive"]
     )
@@ -378,6 +366,21 @@ def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
     ).execute()
 
     return f"https://drive.google.com/drive/folders/{subfolder_id}"
+
+
+# ---------------------------------------------------------------------------
+# ZIP + file hosting fallback (if Google Drive fails)
+# ---------------------------------------------------------------------------
+
+def create_zip_of_folder(folder_path: Path) -> Path:
+    """Create a ZIP file of all files in the folder."""
+    import zipfile
+    zip_path = folder_path.parent / f"{folder_path.name}.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in folder_path.iterdir():
+            if f.is_file():
+                zf.write(f, f.name)
+    return zip_path
 
 
 # ---------------------------------------------------------------------------
@@ -1619,7 +1622,14 @@ def run_submission():
 
         # 4. Upload to Google Drive (if configured)
         drive_link = ""
-        if GOOGLE_SA_JSON and GOOGLE_DRIVE_FOLDER:
+        drive_configured = False
+        try:
+            _test = st.secrets["google_service_account"]
+            drive_configured = bool(GOOGLE_DRIVE_FOLDER)
+        except Exception:
+            pass
+
+        if drive_configured:
             try:
                 update_status("☁️ Uploading files to Google Drive...", 0.60)
                 drive_link = upload_to_google_drive(folder, state["full_name"])
@@ -1639,15 +1649,33 @@ def run_submission():
         update_status("📧 Sending email to admin...", 0.80)
         html_body = build_email_html(analysis, folder, files_list, drive_link=drive_link)
 
-        # Attachments: if Drive upload succeeded, no attachments needed; otherwise CV + certs only
+        # Attachments: if Drive succeeded, no attachments. Otherwise attach ZIP of ALL files.
         attach_paths = []
         if not drive_link:
-            if state["cv_file"]:
-                cv_ext  = Path(state["cv_file"].name).suffix
-                attach_paths.append(folder / f"cv{cv_ext}")
-            for i in range(1, len(state["cert_files"]) + 1):
-                cert_ext = Path(state["cert_files"][i-1].name).suffix
-                attach_paths.append(folder / f"certificate_{i}{cert_ext}")
+            try:
+                update_status("📦 Creating ZIP of all files...", 0.75)
+                zip_path = create_zip_of_folder(folder)
+                # Gmail limit is ~25MB. If ZIP is under 24MB, attach it.
+                zip_size_mb = zip_path.stat().st_size / (1024 * 1024)
+                if zip_size_mb < 24:
+                    attach_paths.append(zip_path)
+                else:
+                    # Too large for email — attach CV/certs only, note about videos
+                    st.warning(f"⚠️ Files are too large for email ({zip_size_mb:.1f} MB). Only CV and certificates will be attached.")
+                    if state["cv_file"]:
+                        cv_ext = Path(state["cv_file"].name).suffix
+                        attach_paths.append(folder / f"cv{cv_ext}")
+                    for i in range(1, len(state["cert_files"]) + 1):
+                        cert_ext = Path(state["cert_files"][i-1].name).suffix
+                        attach_paths.append(folder / f"certificate_{i}{cert_ext}")
+            except Exception:
+                # Fallback: attach CV + certs only
+                if state["cv_file"]:
+                    cv_ext = Path(state["cv_file"].name).suffix
+                    attach_paths.append(folder / f"cv{cv_ext}")
+                for i in range(1, len(state["cert_files"]) + 1):
+                    cert_ext = Path(state["cert_files"][i-1].name).suffix
+                    attach_paths.append(folder / f"certificate_{i}{cert_ext}")
 
         email_sent = True
         email_error = ""
@@ -1741,6 +1769,34 @@ def main():
             st.markdown("### Admin Tools")
             config_url = QUESTIONS_CONFIG_URL if QUESTIONS_CONFIG_URL else "Not configured"
             st.markdown(f"**Edit questions:** [questions_config.json]({config_url})" if QUESTIONS_CONFIG_URL else "**Edit questions:** Set `questions_config_url` secret to a GitHub raw URL")
+
+            st.markdown("---")
+            if st.button("🧪 Test Google Drive Connection"):
+                try:
+                    sa = dict(st.secrets["google_service_account"])
+                    st.success(f"✅ Secrets loaded. Keys: {list(sa.keys())}")
+                    st.info(f"client_email: {sa.get('client_email','MISSING')}")
+                    st.info(f"private_key starts: {sa.get('private_key','')[:30]}...")
+                    st.info(f"Folder ID: {GOOGLE_DRIVE_FOLDER}")
+
+                    from google.oauth2 import service_account
+                    from googleapiclient.discovery import build
+                    creds = service_account.Credentials.from_service_account_info(
+                        sa, scopes=["https://www.googleapis.com/auth/drive"]
+                    )
+                    service = build("drive", "v3", credentials=creds)
+
+                    # Try listing files in the target folder
+                    results = service.files().list(
+                        q=f"'{GOOGLE_DRIVE_FOLDER}' in parents",
+                        pageSize=5, fields="files(id,name)"
+                    ).execute()
+                    st.success(f"✅ Google Drive connected! Files in folder: {len(results.get('files', []))}")
+                except KeyError as e:
+                    st.error(f"❌ Secret missing: {e}")
+                except Exception as e:
+                    st.error(f"❌ Google Drive error: {e}")
+                    st.code(traceback.format_exc())
 
     step = st.session_state.get("step", 0)
 
