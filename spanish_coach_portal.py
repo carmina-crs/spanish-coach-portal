@@ -213,7 +213,9 @@ DEFAULTS = {
     # Step 7 – Documents
     "cv_file": None, "cert_files": [], "photo_link": "",
     # Step 8 – Videos
+    "video_mode": "Upload two separate videos",
     "video_spanish": None, "video_english": None,
+    "video_combined": None, "video_link": "",
     # Step 9 – Quiz
     "quiz_1": "", "quiz_2": "", "quiz_3": "", "quiz_4": "",
     "quiz_5": "", "quiz_6": "", "quiz_7": "", "quiz_8": "",
@@ -304,20 +306,28 @@ def save_submission_files(state: dict) -> Path:
         cert_path = folder / f"certificate_{i}{cert_ext}"
         cert_path.write_bytes(cert.getbuffer())
 
-    # Videos
-    if state["video_spanish"] is not None:
-        vs_ext  = Path(state["video_spanish"].name).suffix
-        vs_path = folder / f"video_spanish{vs_ext}"
-        vs_path.write_bytes(state["video_spanish"].getbuffer())
-
-    if state["video_english"] is not None:
-        ve_ext  = Path(state["video_english"].name).suffix
-        ve_path = folder / f"video_english{ve_ext}"
-        ve_path.write_bytes(state["video_english"].getbuffer())
+    # Videos — depends on video_mode
+    vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
+    if vmode == "Upload two separate videos (Spanish + English)":
+        if state["video_spanish"] is not None:
+            vs_ext  = Path(state["video_spanish"].name).suffix
+            vs_path = folder / f"video_spanish{vs_ext}"
+            vs_path.write_bytes(state["video_spanish"].getbuffer())
+        if state["video_english"] is not None:
+            ve_ext  = Path(state["video_english"].name).suffix
+            ve_path = folder / f"video_english{ve_ext}"
+            ve_path.write_bytes(state["video_english"].getbuffer())
+    elif vmode == "Upload one combined video (Spanish & English in one)":
+        if state["video_combined"] is not None:
+            vc_ext  = Path(state["video_combined"].name).suffix
+            vc_path = folder / f"video_combined{vc_ext}"
+            vc_path.write_bytes(state["video_combined"].getbuffer())
+    # For link mode, no video file to save — the link is stored in JSON data
 
     # JSON data dump (all text answers)
     json_data = {k: v for k, v in state.items()
-                 if k not in ("cv_file", "cert_files", "video_spanish", "video_english", "step", "submitted")}
+                 if k not in ("cv_file", "cert_files", "video_spanish", "video_english",
+                              "video_combined", "step", "submitted")}
     (folder / "submission_data.json").write_text(
         json.dumps(json_data, indent=2, default=str), encoding="utf-8"
     )
@@ -533,7 +543,7 @@ Be honest and thorough. Flag anything missing, vague, or concerning."""
 # Email sender
 # ---------------------------------------------------------------------------
 
-def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_link: str = "") -> str:
+def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_link: str = "", video_info: str = "") -> str:
     verdict = analysis.get("verdict", "NEEDS FURTHER REVIEW")
     score   = analysis.get("overall_score", 0)
 
@@ -644,6 +654,8 @@ def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_
     {"<p style='text-align:center;margin:12px 0 16px;'><a href='" + drive_link + "' style='display:inline-block;background:#c0392b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;'>📥 Download All Files (CV, Certificates, Videos)</a></p><p style='text-align:center;font-size:0.85rem;color:#888;'>Link is available for 10 days. Download and save to your Google Drive.</p>" if drive_link else "<p>Location: <code>" + str(folder) + "</code></p>"}
     <ul>{files_items}</ul>
 
+    {"<h3>Video</h3><p>" + video_info + "</p>" if video_info else ""}
+
   </div>
   <div class="footer">
     This email was generated automatically by the My Daily Spanish Coach Portal.
@@ -742,9 +754,15 @@ def check_completeness(state: dict) -> list[str]:
     if not state["cert_files"]:            missing.append("At least one Teaching Certificate (Step 7)")
     if not state["photo_link"].strip():    missing.append("Photo Link (Step 7)")
 
-    # Step 8 checks
-    if state["video_spanish"] is None:     missing.append("Spanish Introduction Video (Step 8)")
-    if state["video_english"] is None:     missing.append("English Introduction Video (Step 8)")
+    # Step 8 checks — depends on video_mode
+    vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
+    if vmode == "Upload two separate videos (Spanish + English)":
+        if state["video_spanish"] is None:  missing.append("Spanish Introduction Video (Step 8)")
+        if state["video_english"] is None:  missing.append("English Introduction Video (Step 8)")
+    elif vmode == "Upload one combined video (Spanish & English in one)":
+        if state["video_combined"] is None: missing.append("Combined Introduction Video (Step 8)")
+    else:  # Share a video link
+        if not state.get("video_link", "").strip(): missing.append("Video Link (Step 8)")
 
     # Step 9 quiz — all 12 required
     for i in range(1, 13):
@@ -1361,52 +1379,114 @@ def render_step_8():
 
     st.markdown("""
     <div class="section-card">
-    <p>Please upload <strong>two short video introductions (2–5 minutes each)</strong>:</p>
-    <ul>
-        <li><strong>Video 1 — In SPANISH:</strong> Introduce yourself and describe your teaching approach in Spanish.</li>
-        <li><strong>Video 2 — In ENGLISH:</strong> Same introduction in English.</li>
-    </ul>
+    <p>Please provide a <strong>short video introduction (2–5 minutes)</strong> where you introduce yourself
+    and describe your teaching approach — <strong>in both Spanish and English</strong>.</p>
+    <p>You can either upload two separate videos (one in Spanish, one in English), upload a single combined video,
+    or share a link to your video(s).</p>
     <p><em>Make sure the video quality is good and there is no background noise, as we will use it to assess the quality of your online classes.</em></p>
     </div>
     """, unsafe_allow_html=True)
 
-    video_spanish = st.file_uploader("Video in Spanish * (mp4, mov, avi, mkv, webm)",
-                                     type=["mp4", "mov", "avi", "mkv", "webm"],
-                                     key="video_es_uploader")
-    video_english = st.file_uploader("Video in English * (mp4, mov, avi, mkv, webm)",
-                                     type=["mp4", "mov", "avi", "mkv", "webm"],
-                                     key="video_en_uploader")
+    video_mode = st.radio(
+        "How would you like to share your video(s)? *",
+        options=[
+            "Upload two separate videos (Spanish + English)",
+            "Upload one combined video (Spanish & English in one)",
+            "Share a video link",
+        ],
+        index=["Upload two separate videos (Spanish + English)",
+               "Upload one combined video (Spanish & English in one)",
+               "Share a video link"].index(st.session_state["video_mode"]),
+        key="video_mode_radio",
+    )
+    st.session_state["video_mode"] = video_mode
 
-    st.markdown('<p class="file-note">📌 Videos are large files. Upload may take a few minutes depending on your connection.</p>',
-                unsafe_allow_html=True)
+    video_spanish = None
+    video_english = None
+    video_combined = None
+    video_link = ""
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if video_spanish or st.session_state["video_spanish"]:
-            st.success("✅ Spanish video uploaded")
+    if video_mode == "Upload two separate videos (Spanish + English)":
+        video_spanish = st.file_uploader("Video in Spanish * (mp4, mov, avi, mkv, webm)",
+                                         type=["mp4", "mov", "avi", "mkv", "webm"],
+                                         key="video_es_uploader")
+        video_english = st.file_uploader("Video in English * (mp4, mov, avi, mkv, webm)",
+                                         type=["mp4", "mov", "avi", "mkv", "webm"],
+                                         key="video_en_uploader")
+        st.markdown('<p class="file-note">📌 Videos are large files. Upload may take a few minutes depending on your connection.</p>',
+                    unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            if video_spanish or st.session_state["video_spanish"]:
+                st.success("✅ Spanish video uploaded")
+            else:
+                st.warning("❌ Spanish video missing")
+        with col2:
+            if video_english or st.session_state["video_english"]:
+                st.success("✅ English video uploaded")
+            else:
+                st.warning("❌ English video missing")
+
+    elif video_mode == "Upload one combined video (Spanish & English in one)":
+        video_combined = st.file_uploader("Combined video (Spanish & English) * (mp4, mov, avi, mkv, webm)",
+                                          type=["mp4", "mov", "avi", "mkv", "webm"],
+                                          key="video_combined_uploader")
+        st.markdown('<p class="file-note">📌 Videos are large files. Upload may take a few minutes depending on your connection.</p>',
+                    unsafe_allow_html=True)
+        if video_combined or st.session_state["video_combined"]:
+            st.success("✅ Combined video uploaded")
         else:
-            st.warning("❌ Spanish video missing")
-    with col2:
-        if video_english or st.session_state["video_english"]:
-            st.success("✅ English video uploaded")
+            st.warning("❌ Combined video missing")
+
+    else:  # Share a video link
+        video_link = st.text_input(
+            "Paste your video link * (YouTube, Google Drive, Loom, etc.)",
+            value=st.session_state["video_link"],
+            key="video_link_input",
+        )
+        st.markdown('<p class="file-note">📌 Make sure the link is publicly accessible or set to "Anyone with the link can view".</p>',
+                    unsafe_allow_html=True)
+        if video_link.strip():
+            st.success("✅ Video link provided")
         else:
-            st.warning("❌ English video missing")
+            st.warning("❌ Video link missing")
 
     col_next, col_back = st.columns([3, 1])
     with col_next:
         if st.button("Next →", type="primary", use_container_width=True, key="next8"):
-            saved_es = video_spanish if video_spanish else st.session_state["video_spanish"]
-            saved_en = video_english if video_english else st.session_state["video_english"]
-
             errors = []
-            if saved_es is None: errors.append("Spanish introduction video is required.")
-            if saved_en is None: errors.append("English introduction video is required.")
+
+            if video_mode == "Upload two separate videos (Spanish + English)":
+                saved_es = video_spanish if video_spanish else st.session_state["video_spanish"]
+                saved_en = video_english if video_english else st.session_state["video_english"]
+                if saved_es is None: errors.append("Spanish introduction video is required.")
+                if saved_en is None: errors.append("English introduction video is required.")
+                if not errors:
+                    st.session_state["video_spanish"] = saved_es
+                    st.session_state["video_english"] = saved_en
+                    st.session_state["video_combined"] = None
+                    st.session_state["video_link"] = ""
+
+            elif video_mode == "Upload one combined video (Spanish & English in one)":
+                saved_comb = video_combined if video_combined else st.session_state["video_combined"]
+                if saved_comb is None: errors.append("Combined video is required.")
+                if not errors:
+                    st.session_state["video_combined"] = saved_comb
+                    st.session_state["video_spanish"] = None
+                    st.session_state["video_english"] = None
+                    st.session_state["video_link"] = ""
+
+            else:  # Share a video link
+                if not video_link.strip(): errors.append("Video link is required.")
+                if not errors:
+                    st.session_state["video_link"] = video_link.strip()
+                    st.session_state["video_spanish"] = None
+                    st.session_state["video_english"] = None
+                    st.session_state["video_combined"] = None
 
             if errors:
                 for e in errors: st.error(e)
             else:
-                st.session_state["video_spanish"] = saved_es
-                st.session_state["video_english"] = saved_en
                 go_to(9); st.rerun()
     with col_back:
         if st.button("← Back", key="back8"):
@@ -1490,17 +1570,25 @@ def render_step_10():
     st.markdown("### 📎 Files Uploaded")
     cv_ok    = st.session_state["cv_file"] is not None
     cert_ok  = len(st.session_state["cert_files"]) > 0
-    vid_es   = st.session_state["video_spanish"] is not None
-    vid_en   = st.session_state["video_english"] is not None
     photo_ok = bool(st.session_state["photo_link"].strip())
+
+    vmode = st.session_state.get("video_mode", "Upload two separate videos (Spanish + English)")
+    if vmode == "Upload two separate videos (Spanish + English)":
+        vid_ok = st.session_state["video_spanish"] is not None and st.session_state["video_english"] is not None
+        vid_label = "Videos (Spanish + English)"
+    elif vmode == "Upload one combined video (Spanish & English in one)":
+        vid_ok = st.session_state["video_combined"] is not None
+        vid_label = "Combined Video"
+    else:
+        vid_ok = bool(st.session_state.get("video_link", "").strip())
+        vid_label = "Video Link"
 
     col1, col2, col3 = st.columns(3)
     with col1:
         st.write("CV / Resume:", "✅" if cv_ok else "❌")
         st.write("Certificates:", f"✅ ({len(st.session_state['cert_files'])})" if cert_ok else "❌")
     with col2:
-        st.write("Spanish Video:", "✅" if vid_es else "❌")
-        st.write("English Video:", "✅" if vid_en else "❌")
+        st.write(f"{vid_label}:", "✅" if vid_ok else "❌")
     with col3:
         st.write("Photo Link:", "✅" if photo_ok else "❌")
 
@@ -1513,7 +1601,7 @@ def render_step_10():
         ("Step 5 – Development", bool(st.session_state["improve_skills"])),
         ("Step 6 – Team & Rate", bool(st.session_state["ideal_rate"])),
         ("Step 7 – Documents", cv_ok and cert_ok and photo_ok),
-        ("Step 8 – Videos", vid_es and vid_en),
+        ("Step 8 – Videos", vid_ok),
         ("Step 9 – Quiz", all(st.session_state.get(f"quiz_{i}", "").strip() for i in range(1, 13))),
     ]
     for label, done in sections:
@@ -1632,16 +1720,26 @@ def run_submission():
             st.warning(f"⚠️ File upload failed: {e}. Files will be attached to email instead.")
             drive_link = ""
 
-        # 5. Build file list for email
+        # 5. Build file list and video info for email
         files_list = [f.name for f in [state["cv_file"]] if f]
         files_list += [f.name for f in state["cert_files"]]
-        if state["video_spanish"]: files_list.append(state["video_spanish"].name)
-        if state["video_english"]: files_list.append(state["video_english"].name)
+        vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
+        video_info = ""
+        if vmode == "Upload two separate videos (Spanish + English)":
+            if state["video_spanish"]: files_list.append(state["video_spanish"].name)
+            if state["video_english"]: files_list.append(state["video_english"].name)
+            video_info = "🎥 Two separate videos uploaded (Spanish + English) — check the ZIP file."
+        elif vmode == "Upload one combined video (Spanish & English in one)":
+            if state["video_combined"]: files_list.append(state["video_combined"].name)
+            video_info = "🎥 One combined video uploaded (Spanish & English) — check the ZIP file."
+        else:
+            link = state.get("video_link", "").strip()
+            video_info = f'🎥 Video link shared by applicant: <a href="{link}">{link}</a>'
         files_list.append("submission_data.json")
 
         # 6. Build and send email
         update_status("📧 Sending email to admin...", 0.80)
-        html_body = build_email_html(analysis, folder, files_list, drive_link=drive_link)
+        html_body = build_email_html(analysis, folder, files_list, drive_link=drive_link, video_info=video_info)
 
         # Attachments: if Drive succeeded, no attachments. Otherwise attach ZIP of ALL files.
         attach_paths = []
