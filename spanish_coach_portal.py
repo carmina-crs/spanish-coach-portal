@@ -134,7 +134,18 @@ SENDER_PASSWORD = get_secret("sender_password")
 ADMIN_EMAIL     = "carmina@talkinfrench.com"
 
 # Google Drive config (optional — falls back to email attachments if not set)
-GOOGLE_SA_JSON      = get_secret("google_service_account_json", "")
+# Google service account — supports both one-line JSON string or TOML section
+GOOGLE_SA_JSON = ""
+try:
+    # Method 1: TOML section [google_service_account] (recommended)
+    sa_section = dict(st.secrets.get("google_service_account", {}))
+    if sa_section and "type" in sa_section:
+        GOOGLE_SA_JSON = json.dumps(dict(sa_section))
+except Exception:
+    pass
+if not GOOGLE_SA_JSON:
+    # Method 2: Single JSON string (fallback)
+    GOOGLE_SA_JSON = get_secret("google_service_account_json", "")
 GOOGLE_DRIVE_FOLDER = get_secret("google_drive_folder_id", "")
 
 # Questions config URL (optional — for editing questions via GitHub)
