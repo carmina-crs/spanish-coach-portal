@@ -211,7 +211,7 @@ DEFAULTS = {
     "respond_24h": "Yes", "ideal_rate": "", "hours_per_week": 10,
     "confirm_payment": False, "confirm_taxes": False, "confirm_parttime": False,
     # Step 7 – Documents
-    "cv_file": None, "cert_files": [], "photo_link": "",
+    "cv_file": None, "cert_files": [], "photo_file": None,
     # Step 8 – Videos
     "video_mode": "Upload two separate videos",
     "video_spanish": None, "video_english": None,
@@ -306,6 +306,12 @@ def save_submission_files(state: dict) -> Path:
         cert_path = folder / f"certificate_{i}{cert_ext}"
         cert_path.write_bytes(cert.getbuffer())
 
+    # Photo
+    if state["photo_file"] is not None:
+        ph_ext  = Path(state["photo_file"].name).suffix
+        ph_path = folder / f"photo{ph_ext}"
+        ph_path.write_bytes(state["photo_file"].getbuffer())
+
     # Videos — depends on video_mode
     vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
     if vmode == "Upload two separate videos (Spanish + English)":
@@ -326,8 +332,8 @@ def save_submission_files(state: dict) -> Path:
 
     # JSON data dump (all text answers)
     json_data = {k: v for k, v in state.items()
-                 if k not in ("cv_file", "cert_files", "video_spanish", "video_english",
-                              "video_combined", "step", "submitted")}
+                 if k not in ("cv_file", "cert_files", "photo_file", "video_spanish",
+                              "video_english", "video_combined", "step", "submitted")}
     (folder / "submission_data.json").write_text(
         json.dumps(json_data, indent=2, default=str), encoding="utf-8"
     )
@@ -486,8 +492,8 @@ Hours Per Week: {state['hours_per_week']}
 === CERTIFICATE TEXT ===
 {certs_combined}
 
-=== PHOTO LINK ===
-{state['photo_link']}
+=== PHOTO ===
+{"Photo uploaded: " + state["photo_file"].name if state.get("photo_file") else "No photo uploaded."}
 
 ---
 
@@ -752,7 +758,7 @@ def check_completeness(state: dict) -> list[str]:
     # Step 7 checks
     if state["cv_file"] is None:           missing.append("CV / Resume (Step 7)")
     if not state["cert_files"]:            missing.append("At least one Teaching Certificate (Step 7)")
-    if not state["photo_link"].strip():    missing.append("Photo Link (Step 7)")
+    if state["photo_file"] is None:        missing.append("Professional Photo (Step 7)")
 
     # Step 8 checks — depends on video_mode
     vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
@@ -794,11 +800,10 @@ def render_step_0():
 
     st.markdown("### 📋 Before you begin, please have ready:")
     items = [
-        ("✅", "CV (PDF or Word document)"),
+        ("✅", "CV / Resume <strong>in English</strong> (PDF or Word document)"),
         ("✅", "Teaching certificates (PDF)"),
-        ("✅", "Short introduction video in Spanish"),
-        ("✅", "Short introduction video in English"),
-        ("✅", "Photo (link to Google Drive or Dropbox)"),
+        ("✅", "Short introduction video in Spanish and English — <strong>good video quality, no background noise</strong>"),
+        ("✅", "A professional photo of yourself (PNG or JPG)"),
     ]
     for icon, label in items:
         st.markdown(f'<div class="check-item">{icon} {label}</div>', unsafe_allow_html=True)
@@ -1328,12 +1333,13 @@ def render_step_7():
                                   type=["pdf"],
                                   accept_multiple_files=True,
                                   key="cert_uploader")
-    photo_link = st.text_input("Photo Link * (Google Drive or Dropbox)",
-                               value=st.session_state["photo_link"],
-                               help="Upload your photo to Google Drive or Dropbox, make it publicly viewable, and paste the link here. PNG preferred.")
+    photo_file = st.file_uploader("Professional Photo * (PNG or JPG)",
+                                  type=["png", "jpg", "jpeg"],
+                                  key="photo_uploader",
+                                  help="Upload a clear, professional-looking photo of yourself.")
 
     # Show current state
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         if cv_file or st.session_state["cv_file"]:
             st.success("✅ CV uploaded")
@@ -1345,6 +1351,11 @@ def render_step_7():
             st.success(f"✅ {n_certs} certificate(s) uploaded")
         else:
             st.warning("❌ No certificates uploaded yet")
+    with col3:
+        if photo_file or st.session_state["photo_file"]:
+            st.success("✅ Photo uploaded")
+        else:
+            st.warning("❌ Photo not yet uploaded")
 
     col_next, col_back = st.columns([3, 1])
     with col_next:
@@ -1352,18 +1363,19 @@ def render_step_7():
             # Persist uploads (fall back to previously saved if new not provided)
             saved_cv    = cv_file if cv_file else st.session_state["cv_file"]
             saved_certs = cert_files if cert_files else st.session_state["cert_files"]
+            saved_photo = photo_file if photo_file else st.session_state["photo_file"]
 
             errors = []
             if saved_cv is None:          errors.append("CV / Resume is required.")
             if not saved_certs:           errors.append("At least one Teaching Certificate is required.")
-            if not photo_link.strip():    errors.append("Photo link is required.")
+            if saved_photo is None:       errors.append("Professional photo is required.")
 
             if errors:
                 for e in errors: st.error(e)
             else:
                 st.session_state["cv_file"]    = saved_cv
                 st.session_state["cert_files"] = saved_certs
-                st.session_state["photo_link"] = photo_link
+                st.session_state["photo_file"] = saved_photo
                 go_to(8); st.rerun()
     with col_back:
         if st.button("← Back", key="back7"):
@@ -1570,7 +1582,7 @@ def render_step_10():
     st.markdown("### 📎 Files Uploaded")
     cv_ok    = st.session_state["cv_file"] is not None
     cert_ok  = len(st.session_state["cert_files"]) > 0
-    photo_ok = bool(st.session_state["photo_link"].strip())
+    photo_ok = st.session_state["photo_file"] is not None
 
     vmode = st.session_state.get("video_mode", "Upload two separate videos (Spanish + English)")
     if vmode == "Upload two separate videos (Spanish + English)":
@@ -1590,7 +1602,7 @@ def render_step_10():
     with col2:
         st.write(f"{vid_label}:", "✅" if vid_ok else "❌")
     with col3:
-        st.write("Photo Link:", "✅" if photo_ok else "❌")
+        st.write("Photo:", "✅" if photo_ok else "❌")
 
     st.markdown("### 📋 Section Completion")
     sections = [
@@ -1723,6 +1735,7 @@ def run_submission():
         # 5. Build file list and video info for email
         files_list = [f.name for f in [state["cv_file"]] if f]
         files_list += [f.name for f in state["cert_files"]]
+        if state["photo_file"]: files_list.append(state["photo_file"].name)
         vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
         video_info = ""
         if vmode == "Upload two separate videos (Spanish + English)":
@@ -1862,33 +1875,6 @@ def main():
             config_url = QUESTIONS_CONFIG_URL if QUESTIONS_CONFIG_URL else "Not configured"
             st.markdown(f"**Edit questions:** [questions_config.json]({config_url})" if QUESTIONS_CONFIG_URL else "**Edit questions:** Set `questions_config_url` secret to a GitHub raw URL")
 
-            st.markdown("---")
-            if st.button("🧪 Test Google Drive Connection"):
-                try:
-                    sa = dict(st.secrets["google_service_account"])
-                    st.success(f"✅ Secrets loaded. Keys: {list(sa.keys())}")
-                    st.info(f"client_email: {sa.get('client_email','MISSING')}")
-                    st.info(f"private_key starts: {sa.get('private_key','')[:30]}...")
-                    st.info(f"Folder ID: {GOOGLE_DRIVE_FOLDER}")
-
-                    from google.oauth2 import service_account
-                    from googleapiclient.discovery import build
-                    creds = service_account.Credentials.from_service_account_info(
-                        sa, scopes=["https://www.googleapis.com/auth/drive"]
-                    )
-                    service = build("drive", "v3", credentials=creds)
-
-                    # Try finding the shared folder
-                    folder_id = _find_shared_folder(service)
-                    if folder_id:
-                        st.success(f"✅ Google Drive connected! Found shared folder ID: {folder_id}")
-                    else:
-                        st.error("❌ Could not find 'Spanish Coach Applications' folder. Make sure it is shared with the service account as Editor.")
-                except KeyError as e:
-                    st.error(f"❌ Secret missing: {e}")
-                except Exception as e:
-                    st.error(f"❌ Google Drive error: {e}")
-                    st.code(traceback.format_exc())
 
     step = st.session_state.get("step", 0)
 
