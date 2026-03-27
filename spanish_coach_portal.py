@@ -340,61 +340,39 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def _get_or_create_root_folder(service) -> str:
-    """Get the root 'Spanish Coach Applications' folder owned by the service account.
-    Creates it if it doesn't exist, and shares it with the admin."""
-    folder_name = "Spanish Coach Applications"
-
-    # Check if we already created this folder
-    results = service.files().list(
-        q=f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        pageSize=1, fields="files(id,name)"
-    ).execute()
-    files = results.get("files", [])
-
-    if files:
-        return files[0]["id"]
-
-    # Create the folder (owned by service account)
-    folder_meta = {
-        "name": folder_name,
-        "mimeType": "application/vnd.google-apps.folder",
-    }
-    folder = service.files().create(body=folder_meta, fields="id").execute()
-    folder_id = folder["id"]
-
-    # Share with admin
-    service.permissions().create(
-        fileId=folder_id,
-        body={"type": "user", "role": "writer", "emailAddress": ADMIN_EMAIL},
-    ).execute()
-
-    # Also share with anyone who has the link (for team access)
-    service.permissions().create(
-        fileId=folder_id,
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-
-    return folder_id
-
-
 def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
-    """Upload all files from folder_path to Google Drive. Returns shareable folder URL."""
+    """Upload all files to the admin's Google Drive folder. Returns shareable folder URL."""
     from googleapiclient.http import MediaFileUpload
 
     service = _get_drive_service()
+    parent_folder_id = GOOGLE_DRIVE_FOLDER
 
-    # Get or create root folder (owned by service account, shared with admin)
-    root_folder_id = _get_or_create_root_folder(service)
+    # First, verify we can access the shared folder
+    try:
+        service.files().get(
+            fileId=parent_folder_id, supportsAllDrives=True, fields="id,name"
+        ).execute()
+    except Exception:
+        # If direct access fails, search in "shared with me"
+        results = service.files().list(
+            q=f"'{parent_folder_id}' in parents or name='Spanish Coach Applications'",
+            supportsAllDrives=True, includeItemsFromAllDrives=True,
+            pageSize=1, fields="files(id,name)"
+        ).execute()
+        # If still can't find, raise the error
+        if not results.get("files"):
+            raise
 
     # Create subfolder for this coach
     date_str = datetime.now().strftime("%Y-%m-%d")
     subfolder_meta = {
         "name": f"{coach_name} - {date_str}",
         "mimeType": "application/vnd.google-apps.folder",
-        "parents": [root_folder_id],
+        "parents": [parent_folder_id],
     }
-    subfolder = service.files().create(body=subfolder_meta, fields="id").execute()
+    subfolder = service.files().create(
+        body=subfolder_meta, fields="id", supportsAllDrives=True
+    ).execute()
     subfolder_id = subfolder["id"]
 
     # Upload each file
@@ -402,12 +380,15 @@ def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
         if file_path.is_file():
             media = MediaFileUpload(str(file_path), resumable=True)
             file_meta = {"name": file_path.name, "parents": [subfolder_id]}
-            service.files().create(body=file_meta, media_body=media, fields="id").execute()
+            service.files().create(
+                body=file_meta, media_body=media, fields="id", supportsAllDrives=True
+            ).execute()
 
     # Make subfolder viewable by anyone with link
     service.permissions().create(
         fileId=subfolder_id,
         body={"type": "anyone", "role": "reader"},
+        supportsAllDrives=True,
     ).execute()
 
     return f"https://drive.google.com/drive/folders/{subfolder_id}"
@@ -1831,12 +1812,11 @@ def main():
                     )
                     service = build("drive", "v3", credentials=creds)
 
-                    # Try listing files in the target folder
-                    results = service.files().list(
-                        q=f"'{GOOGLE_DRIVE_FOLDER}' in parents",
-                        pageSize=5, fields="files(id,name)"
+                    # Try accessing the target folder
+                    folder_info = service.files().get(
+                        fileId=GOOGLE_DRIVE_FOLDER, supportsAllDrives=True, fields="id,name"
                     ).execute()
-                    st.success(f"✅ Google Drive connected! Files in folder: {len(results.get('files', []))}")
+                    st.success(f"✅ Google Drive connected! Folder: {folder_info.get('name', '?')}")
                 except KeyError as e:
                     st.error(f"❌ Secret missing: {e}")
                 except Exception as e:
