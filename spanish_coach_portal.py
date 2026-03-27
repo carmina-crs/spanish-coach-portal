@@ -340,67 +340,35 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def _find_shared_folder(service) -> str:
-    """Find the 'Spanish Coach Applications' folder shared with this service account."""
-    # Search in shared files by name
-    results = service.files().list(
-        q="sharedWithMe=true and name='Spanish Coach Applications' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        pageSize=5, fields="files(id,name,owners)"
-    ).execute()
-    files = results.get("files", [])
-    if files:
-        return files[0]["id"]
+def upload_files_to_hosting(folder_path: Path, coach_name: str) -> str:
+    """Create a ZIP of all files and upload to free file hosting. Returns download link."""
+    import requests as _req
+    import zipfile
 
-    # Also try broader search
-    results = service.files().list(
-        q="name='Spanish Coach Applications' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        pageSize=5, fields="files(id,name)"
-    ).execute()
-    files = results.get("files", [])
-    if files:
-        return files[0]["id"]
-
-    return ""
-
-
-def upload_to_google_drive(folder_path: Path, coach_name: str) -> str:
-    """Upload all files to the admin's Google Drive folder. Returns shareable folder URL."""
-    from googleapiclient.http import MediaFileUpload
-
-    service = _get_drive_service()
-
-    # Find the shared folder (not by ID, but by searching)
-    parent_folder_id = _find_shared_folder(service)
-    if not parent_folder_id:
-        raise Exception(
-            "Could not find 'Spanish Coach Applications' folder. "
-            "Make sure it is shared with the service account email as Editor."
-        )
-
-    # Create subfolder for this coach
+    # Create ZIP
     date_str = datetime.now().strftime("%Y-%m-%d")
-    subfolder_meta = {
-        "name": f"{coach_name} - {date_str}",
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [parent_folder_id],
-    }
-    subfolder = service.files().create(body=subfolder_meta, fields="id").execute()
-    subfolder_id = subfolder["id"]
+    zip_name = f"{re.sub(r'[^a-zA-Z0-9_-]', '_', coach_name)}_{date_str}.zip"
+    zip_path = folder_path.parent / zip_name
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in folder_path.iterdir():
+            if f.is_file():
+                zf.write(f, f.name)
 
-    # Upload each file
-    for file_path in folder_path.iterdir():
-        if file_path.is_file():
-            media = MediaFileUpload(str(file_path), resumable=True)
-            file_meta = {"name": file_path.name, "parents": [subfolder_id]}
-            service.files().create(body=file_meta, media_body=media, fields="id").execute()
+    # Upload to gofile.io (free, no account, files last 10+ days)
+    server_resp = _req.get("https://api.gofile.io/servers", timeout=10).json()
+    server = server_resp["data"]["servers"][0]["name"]
 
-    # Make subfolder viewable by anyone with link
-    service.permissions().create(
-        fileId=subfolder_id,
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
+    with open(zip_path, "rb") as f:
+        upload_resp = _req.post(
+            f"https://{server}.gofile.io/contents/uploadfile",
+            files={"file": (zip_name, f)},
+            timeout=300,  # 5 min timeout for large files
+        ).json()
 
-    return f"https://drive.google.com/drive/folders/{subfolder_id}"
+    if upload_resp.get("status") == "ok":
+        return upload_resp["data"]["downloadPage"]
+
+    raise Exception(f"File hosting upload failed: {upload_resp}")
 
 
 # ---------------------------------------------------------------------------
@@ -673,7 +641,7 @@ def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_
     </p>
 
     <h3>Files</h3>
-    {"<p style='text-align:center;margin:12px 0 16px;'><a href='" + drive_link + "' style='display:inline-block;background:#c0392b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;'>View All Files on Google Drive</a></p>" if drive_link else "<p>Location: <code>" + str(folder) + "</code></p>"}
+    {"<p style='text-align:center;margin:12px 0 16px;'><a href='" + drive_link + "' style='display:inline-block;background:#c0392b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:1rem;'>📥 Download All Files (CV, Certificates, Videos)</a></p><p style='text-align:center;font-size:0.85rem;color:#888;'>Link is available for 10 days. Download and save to your Google Drive.</p>" if drive_link else "<p>Location: <code>" + str(folder) + "</code></p>"}
     <ul>{files_items}</ul>
 
   </div>
@@ -1655,23 +1623,14 @@ def run_submission():
                 "recommended_action": "Review application manually.",
             }
 
-        # 4. Upload to Google Drive (if configured)
+        # 4. Upload files to hosting service
         drive_link = ""
-        drive_configured = False
         try:
-            _test = st.secrets["google_service_account"]
-            drive_configured = bool(GOOGLE_DRIVE_FOLDER)
-        except Exception:
-            pass
-
-        if drive_configured:
-            try:
-                update_status("☁️ Uploading files to Google Drive...", 0.60)
-                drive_link = upload_to_google_drive(folder, state["full_name"])
-            except Exception as e:
-                st.warning(f"⚠️ Google Drive upload failed: {e}")
-                st.code(traceback.format_exc())
-                drive_link = ""
+            update_status("☁️ Uploading files (CV, certificates, videos)...", 0.60)
+            drive_link = upload_files_to_hosting(folder, state["full_name"])
+        except Exception as e:
+            st.warning(f"⚠️ File upload failed: {e}. Files will be attached to email instead.")
+            drive_link = ""
 
         # 5. Build file list for email
         files_list = [f.name for f in [state["cv_file"]] if f]
