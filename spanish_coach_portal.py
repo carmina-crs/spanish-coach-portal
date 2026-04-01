@@ -342,12 +342,15 @@ def show_step_pill(step: int, total: int = 10):
     </div>""", unsafe_allow_html=True)
     st.progress(progress_pct(step))
     # Save progress button (small, right-aligned)
-    with st.expander("Save progress for later"):
-        st.markdown("Download your progress file. You can upload it on the welcome page to resume later. (Files will need to be re-uploaded.)")
-        progress_json = json.dumps(get_saveable_state(), indent=2)
-        st.download_button("Save My Progress", progress_json,
-                           "my_spanish_coach_application.json", "application/json",
-                           use_container_width=True, key=f"save_step_{step}")
+    try:
+        with st.expander("Save progress for later"):
+            st.markdown("Download your progress file. You can upload it on the welcome page to resume later. (Files will need to be re-uploaded.)")
+            progress_json = json.dumps(get_saveable_state(), indent=2, default=str)
+            st.download_button("Save My Progress", progress_json,
+                               "my_spanish_coach_application.json", "application/json",
+                               use_container_width=True, key=f"save_step_{step}")
+    except Exception:
+        pass
 
 
 def nav_buttons(back_step: int, back_key: str, next_key: str = "", next_label: str = "Continue",
@@ -378,8 +381,12 @@ def get_saveable_state() -> dict:
     data = {}
     for k, v in st.session_state.items():
         if k not in exclude and not k.startswith("_") and not k.startswith("FormSubmitter"):
-            if isinstance(v, (str, int, float, bool, list)):
+            if isinstance(v, (str, int, float, bool)):
                 data[k] = v
+            elif isinstance(v, list):
+                # Only save lists of simple types (not file objects)
+                if all(isinstance(item, (str, int, float, bool)) for item in v):
+                    data[k] = v
     return data
 
 
