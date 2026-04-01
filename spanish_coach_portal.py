@@ -32,10 +32,26 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-/* Hide Streamlit toolbar icons (fork, GitHub, share, menu) */
+/* Hide ALL Streamlit branding, toolbar, footer, badges */
 [data-testid="stToolbar"] { display: none !important; }
 header[data-testid="stHeader"] { display: none !important; }
 footer { display: none !important; }
+#MainMenu { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+.viewerBadge_container__r5tak { display: none !important; }
+.stApp > footer { display: none !important; }
+div[class*="viewerBadge"] { display: none !important; }
+a[href*="streamlit.io"] { display: none !important; }
+iframe[title="streamlit_badge"] { display: none !important; }
+/* Hide bottom-right floating badges */
+.stApp::after { display: none !important; }
+div[data-testid="manage-app-button"] { display: none !important; }
+._profileContainer_gzau3_53 { display: none !important; }
+div[class*="StatusWidget"] { display: none !important; }
+/* Force hide any fixed/absolute positioned bottom-right elements */
+.reportview-container .main footer { display: none !important; }
+div[class*="stDeployButton"] { display: none !important; }
 
 /* Global layout */
 .block-container { max-width: 800px; padding-top: 2rem; }
