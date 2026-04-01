@@ -32,6 +32,11 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
+/* Hide Streamlit toolbar icons (fork, GitHub, share, menu) */
+[data-testid="stToolbar"] { display: none !important; }
+header[data-testid="stHeader"] { display: none !important; }
+footer { display: none !important; }
+
 /* Global layout */
 .block-container { max-width: 800px; padding-top: 2rem; }
 
@@ -313,6 +318,13 @@ def show_step_pill(step: int, total: int = 10):
         <span class="progress-pct">{pct}% complete</span>
     </div>""", unsafe_allow_html=True)
     st.progress(progress_pct(step))
+    # Save progress button (small, right-aligned)
+    with st.expander("Save progress for later"):
+        st.markdown("Download your progress file. You can upload it on the welcome page to resume later. (Files will need to be re-uploaded.)")
+        progress_json = json.dumps(get_saveable_state(), indent=2)
+        st.download_button("Save My Progress", progress_json,
+                           "my_spanish_coach_application.json", "application/json",
+                           use_container_width=True, key=f"save_step_{step}")
 
 
 def nav_buttons(back_step: int, back_key: str, next_key: str = "", next_label: str = "Continue",
@@ -872,7 +884,7 @@ def render_step_0():
     <h3 style="margin-top:0;">Welcome!</h3>
     <p>Apply to become a certified Spanish coach with our platform.<br>
     Complete all steps carefully — this usually takes <strong>20–30 minutes</strong>.</p>
-    <p>You can <strong>save your progress</strong> at any time using the sidebar menu and come back to finish later.</p>
+    <p>You can <strong>save your progress</strong> at any time and come back to finish later.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2071,18 +2083,18 @@ def main():
         """, unsafe_allow_html=True)
         return
 
-    # Sidebar — Save Progress (always available) + Admin tools
-    with st.sidebar:
-        st.markdown("### Save / Resume Progress")
-        st.markdown("Save your progress to continue later. Text answers are saved; you will need to re-upload files.")
+    # Hide sidebar hamburger for applicants (non-admin)
+    if not ADMIN_MODE:
+        st.markdown("""
+        <style>
+        [data-testid="collapsedControl"] { display: none !important; }
+        section[data-testid="stSidebar"] { display: none !important; }
+        </style>
+        """, unsafe_allow_html=True)
 
-        progress_json = json.dumps(get_saveable_state(), indent=2)
-        st.download_button("Save My Progress", progress_json,
-                           "my_spanish_coach_application.json", "application/json",
-                           use_container_width=True)
-
-        if ADMIN_MODE:
-            st.markdown("---")
+    # Admin-only sidebar
+    if ADMIN_MODE:
+        with st.sidebar:
             st.markdown("### Admin Panel")
             if QUESTIONS_CONFIG_URL:
                 st.markdown(f"[Edit questions_config.json]({QUESTIONS_CONFIG_URL})")
