@@ -81,17 +81,23 @@ button[kind="secondary"]:hover {
     color: white !important;
 }
 
-/* Continue / Primary button — Gold/Yellow */
+/* Continue / Primary button — Gold/Yellow with black bold text */
 button[kind="primary"],
 button[kind="primaryFormSubmit"] {
     background-color: #f39c12 !important;
-    color: white !important;
+    color: #000000 !important;
     border: none !important;
+    font-weight: 700 !important;
 }
 button[kind="primary"]:hover,
 button[kind="primaryFormSubmit"]:hover {
     background-color: #d68910 !important;
-    color: white !important;
+    color: #000000 !important;
+}
+button[kind="primary"] p,
+button[kind="primaryFormSubmit"] p {
+    color: #000000 !important;
+    font-weight: 700 !important;
 }
 
 /* Save My Progress (download button) — Blue */
