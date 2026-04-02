@@ -219,18 +219,269 @@ secrets_ok = all([
 # ---------------------------------------------------------------------------
 # Timezone list
 # ---------------------------------------------------------------------------
-# Build complete timezone list from Python's zoneinfo database
-try:
-    from zoneinfo import available_timezones
-    _all_tz = sorted(available_timezones())
-except ImportError:
-    try:
-        import pytz
-        _all_tz = sorted(pytz.common_timezones)
-    except ImportError:
-        _all_tz = []
+# Build timezone list: Country/City — UTC offset
+_TZ_DATA = [
+    # UTC-12 to UTC-10
+    ("US Minor Outlying Islands — Baker Island", "UTC-12:00"),
+    ("American Samoa — Pago Pago", "UTC-11:00"),
+    ("United States — Hawaii (Honolulu)", "UTC-10:00"),
+    ("French Polynesia — Tahiti", "UTC-10:00"),
+    ("Cook Islands — Rarotonga", "UTC-10:00"),
+    # UTC-9 to UTC-8
+    ("United States — Alaska (Anchorage)", "UTC-09:00"),
+    ("United States — Pacific Time (Los Angeles)", "UTC-08:00"),
+    ("Canada — Pacific Time (Vancouver)", "UTC-08:00"),
+    ("Mexico — Tijuana", "UTC-08:00"),
+    # UTC-7
+    ("United States — Mountain Time (Denver)", "UTC-07:00"),
+    ("Canada — Mountain Time (Edmonton)", "UTC-07:00"),
+    ("Mexico — Chihuahua", "UTC-07:00"),
+    # UTC-6
+    ("United States — Central Time (Chicago)", "UTC-06:00"),
+    ("Canada — Central Time (Winnipeg)", "UTC-06:00"),
+    ("Mexico — Mexico City", "UTC-06:00"),
+    ("Guatemala — Guatemala City", "UTC-06:00"),
+    ("Honduras — Tegucigalpa", "UTC-06:00"),
+    ("El Salvador — San Salvador", "UTC-06:00"),
+    ("Costa Rica — San Jose", "UTC-06:00"),
+    ("Nicaragua — Managua", "UTC-06:00"),
+    ("Belize — Belmopan", "UTC-06:00"),
+    # UTC-5
+    ("United States — Eastern Time (New York)", "UTC-05:00"),
+    ("Canada — Eastern Time (Toronto)", "UTC-05:00"),
+    ("Colombia — Bogota", "UTC-05:00"),
+    ("Peru — Lima", "UTC-05:00"),
+    ("Ecuador — Quito", "UTC-05:00"),
+    ("Cuba — Havana", "UTC-05:00"),
+    ("Panama — Panama City", "UTC-05:00"),
+    ("Jamaica — Kingston", "UTC-05:00"),
+    ("Haiti — Port-au-Prince", "UTC-05:00"),
+    # UTC-4
+    ("Canada — Atlantic Time (Halifax)", "UTC-04:00"),
+    ("Venezuela — Caracas", "UTC-04:00"),
+    ("Bolivia — La Paz", "UTC-04:00"),
+    ("Dominican Republic — Santo Domingo", "UTC-04:00"),
+    ("Puerto Rico — San Juan", "UTC-04:00"),
+    ("Paraguay — Asuncion", "UTC-04:00"),
+    ("Chile — Santiago", "UTC-04:00"),
+    ("Trinidad and Tobago — Port of Spain", "UTC-04:00"),
+    ("Barbados — Bridgetown", "UTC-04:00"),
+    ("Guyana — Georgetown", "UTC-04:00"),
+    # UTC-3
+    ("Argentina — Buenos Aires", "UTC-03:00"),
+    ("Brazil — Sao Paulo", "UTC-03:00"),
+    ("Brazil — Rio de Janeiro", "UTC-03:00"),
+    ("Brazil — Brasilia", "UTC-03:00"),
+    ("Uruguay — Montevideo", "UTC-03:00"),
+    ("Suriname — Paramaribo", "UTC-03:00"),
+    ("French Guiana — Cayenne", "UTC-03:00"),
+    ("Falkland Islands — Stanley", "UTC-03:00"),
+    # UTC-2 to UTC-1
+    ("Brazil — Fernando de Noronha", "UTC-02:00"),
+    ("South Georgia", "UTC-02:00"),
+    ("Portugal — Azores", "UTC-01:00"),
+    ("Cape Verde — Praia", "UTC-01:00"),
+    # UTC+0
+    ("United Kingdom — London", "UTC+00:00"),
+    ("Ireland — Dublin", "UTC+00:00"),
+    ("Portugal — Lisbon", "UTC+00:00"),
+    ("Iceland — Reykjavik", "UTC+00:00"),
+    ("Ghana — Accra", "UTC+00:00"),
+    ("Senegal — Dakar", "UTC+00:00"),
+    ("Morocco — Casablanca", "UTC+01:00"),
+    ("Ivory Coast — Abidjan", "UTC+00:00"),
+    ("Gambia — Banjul", "UTC+00:00"),
+    ("Guinea — Conakry", "UTC+00:00"),
+    ("Sierra Leone — Freetown", "UTC+00:00"),
+    ("Liberia — Monrovia", "UTC+00:00"),
+    ("Mali — Bamako", "UTC+00:00"),
+    ("Mauritania — Nouakchott", "UTC+00:00"),
+    ("Burkina Faso — Ouagadougou", "UTC+00:00"),
+    ("Togo — Lome", "UTC+00:00"),
+    # UTC+1
+    ("France — Paris", "UTC+01:00"),
+    ("Germany — Berlin", "UTC+01:00"),
+    ("Spain — Madrid", "UTC+01:00"),
+    ("Italy — Rome", "UTC+01:00"),
+    ("Netherlands — Amsterdam", "UTC+01:00"),
+    ("Belgium — Brussels", "UTC+01:00"),
+    ("Switzerland — Zurich", "UTC+01:00"),
+    ("Austria — Vienna", "UTC+01:00"),
+    ("Poland — Warsaw", "UTC+01:00"),
+    ("Czech Republic — Prague", "UTC+01:00"),
+    ("Sweden — Stockholm", "UTC+01:00"),
+    ("Norway — Oslo", "UTC+01:00"),
+    ("Denmark — Copenhagen", "UTC+01:00"),
+    ("Hungary — Budapest", "UTC+01:00"),
+    ("Serbia — Belgrade", "UTC+01:00"),
+    ("Croatia — Zagreb", "UTC+01:00"),
+    ("Slovakia — Bratislava", "UTC+01:00"),
+    ("Slovenia — Ljubljana", "UTC+01:00"),
+    ("Albania — Tirana", "UTC+01:00"),
+    ("North Macedonia — Skopje", "UTC+01:00"),
+    ("Bosnia — Sarajevo", "UTC+01:00"),
+    ("Montenegro — Podgorica", "UTC+01:00"),
+    ("Nigeria — Lagos", "UTC+01:00"),
+    ("Cameroon — Douala", "UTC+01:00"),
+    ("Cameroon — Yaounde", "UTC+01:00"),
+    ("Angola — Luanda", "UTC+01:00"),
+    ("Congo (DRC) — Kinshasa", "UTC+01:00"),
+    ("Chad — Ndjamena", "UTC+01:00"),
+    ("Central African Republic — Bangui", "UTC+01:00"),
+    ("Republic of Congo — Brazzaville", "UTC+01:00"),
+    ("Gabon — Libreville", "UTC+01:00"),
+    ("Equatorial Guinea — Malabo", "UTC+01:00"),
+    ("Tunisia — Tunis", "UTC+01:00"),
+    ("Algeria — Algiers", "UTC+01:00"),
+    ("Libya — Tripoli", "UTC+02:00"),
+    ("Niger — Niamey", "UTC+01:00"),
+    ("Benin — Porto-Novo", "UTC+01:00"),
+    # UTC+2
+    ("Finland — Helsinki", "UTC+02:00"),
+    ("Greece — Athens", "UTC+02:00"),
+    ("Romania — Bucharest", "UTC+02:00"),
+    ("Bulgaria — Sofia", "UTC+02:00"),
+    ("Ukraine — Kyiv", "UTC+02:00"),
+    ("Moldova — Chisinau", "UTC+02:00"),
+    ("Latvia — Riga", "UTC+02:00"),
+    ("Lithuania — Vilnius", "UTC+02:00"),
+    ("Estonia — Tallinn", "UTC+02:00"),
+    ("Cyprus — Nicosia", "UTC+02:00"),
+    ("Israel — Jerusalem", "UTC+02:00"),
+    ("Palestine — Ramallah", "UTC+02:00"),
+    ("Lebanon — Beirut", "UTC+02:00"),
+    ("Jordan — Amman", "UTC+02:00"),
+    ("Syria — Damascus", "UTC+02:00"),
+    ("Egypt — Cairo", "UTC+02:00"),
+    ("South Africa — Johannesburg", "UTC+02:00"),
+    ("South Africa — Cape Town", "UTC+02:00"),
+    ("Mozambique — Maputo", "UTC+02:00"),
+    ("Zimbabwe — Harare", "UTC+02:00"),
+    ("Zambia — Lusaka", "UTC+02:00"),
+    ("Malawi — Lilongwe", "UTC+02:00"),
+    ("Botswana — Gaborone", "UTC+02:00"),
+    ("Namibia — Windhoek", "UTC+02:00"),
+    ("Rwanda — Kigali", "UTC+02:00"),
+    ("Burundi — Bujumbura", "UTC+02:00"),
+    ("Congo (DRC) — Lubumbashi", "UTC+02:00"),
+    ("Eswatini — Mbabane", "UTC+02:00"),
+    ("Lesotho — Maseru", "UTC+02:00"),
+    # UTC+3
+    ("Turkey — Istanbul", "UTC+03:00"),
+    ("Russia — Moscow", "UTC+03:00"),
+    ("Saudi Arabia — Riyadh", "UTC+03:00"),
+    ("Iraq — Baghdad", "UTC+03:00"),
+    ("Kuwait — Kuwait City", "UTC+03:00"),
+    ("Qatar — Doha", "UTC+03:00"),
+    ("Bahrain — Manama", "UTC+03:00"),
+    ("Yemen — Sanaa", "UTC+03:00"),
+    ("Kenya — Nairobi", "UTC+03:00"),
+    ("Ethiopia — Addis Ababa", "UTC+03:00"),
+    ("Tanzania — Dar es Salaam", "UTC+03:00"),
+    ("Uganda — Kampala", "UTC+03:00"),
+    ("Somalia — Mogadishu", "UTC+03:00"),
+    ("Eritrea — Asmara", "UTC+03:00"),
+    ("Djibouti — Djibouti", "UTC+03:00"),
+    ("Madagascar — Antananarivo", "UTC+03:00"),
+    ("Comoros — Moroni", "UTC+03:00"),
+    ("Belarus — Minsk", "UTC+03:00"),
+    # UTC+3:30
+    ("Iran — Tehran", "UTC+03:30"),
+    # UTC+4
+    ("United Arab Emirates — Dubai", "UTC+04:00"),
+    ("Oman — Muscat", "UTC+04:00"),
+    ("Georgia — Tbilisi", "UTC+04:00"),
+    ("Armenia — Yerevan", "UTC+04:00"),
+    ("Azerbaijan — Baku", "UTC+04:00"),
+    ("Mauritius — Port Louis", "UTC+04:00"),
+    ("Seychelles — Victoria", "UTC+04:00"),
+    ("Reunion — Saint-Denis", "UTC+04:00"),
+    # UTC+4:30
+    ("Afghanistan — Kabul", "UTC+04:30"),
+    # UTC+5
+    ("Pakistan — Karachi", "UTC+05:00"),
+    ("Pakistan — Islamabad", "UTC+05:00"),
+    ("Uzbekistan — Tashkent", "UTC+05:00"),
+    ("Tajikistan — Dushanbe", "UTC+05:00"),
+    ("Turkmenistan — Ashgabat", "UTC+05:00"),
+    ("Kazakhstan — Almaty", "UTC+05:00"),
+    ("Kyrgyzstan — Bishkek", "UTC+06:00"),
+    ("Maldives — Male", "UTC+05:00"),
+    # UTC+5:30
+    ("India — Mumbai", "UTC+05:30"),
+    ("India — New Delhi", "UTC+05:30"),
+    ("India — Bangalore", "UTC+05:30"),
+    ("India — Kolkata", "UTC+05:30"),
+    ("India — Chennai", "UTC+05:30"),
+    ("Sri Lanka — Colombo", "UTC+05:30"),
+    # UTC+5:45
+    ("Nepal — Kathmandu", "UTC+05:45"),
+    # UTC+6
+    ("Bangladesh — Dhaka", "UTC+06:00"),
+    ("Bhutan — Thimphu", "UTC+06:00"),
+    ("Kazakhstan — Astana", "UTC+06:00"),
+    # UTC+6:30
+    ("Myanmar — Yangon", "UTC+06:30"),
+    ("Cocos Islands", "UTC+06:30"),
+    # UTC+7
+    ("Thailand — Bangkok", "UTC+07:00"),
+    ("Vietnam — Ho Chi Minh City", "UTC+07:00"),
+    ("Vietnam — Hanoi", "UTC+07:00"),
+    ("Indonesia — Jakarta", "UTC+07:00"),
+    ("Cambodia — Phnom Penh", "UTC+07:00"),
+    ("Laos — Vientiane", "UTC+07:00"),
+    ("Mongolia — Ulaanbaatar", "UTC+08:00"),
+    # UTC+8
+    ("China — Beijing", "UTC+08:00"),
+    ("China — Shanghai", "UTC+08:00"),
+    ("China — Shenzhen", "UTC+08:00"),
+    ("Taiwan — Taipei", "UTC+08:00"),
+    ("Hong Kong", "UTC+08:00"),
+    ("Macau", "UTC+08:00"),
+    ("Singapore", "UTC+08:00"),
+    ("Malaysia — Kuala Lumpur", "UTC+08:00"),
+    ("Philippines — Manila", "UTC+08:00"),
+    ("Indonesia — Bali (Denpasar)", "UTC+08:00"),
+    ("Brunei — Bandar Seri Begawan", "UTC+08:00"),
+    ("Australia — Perth", "UTC+08:00"),
+    # UTC+9
+    ("Japan — Tokyo", "UTC+09:00"),
+    ("South Korea — Seoul", "UTC+09:00"),
+    ("North Korea — Pyongyang", "UTC+09:00"),
+    ("Indonesia — Jayapura", "UTC+09:00"),
+    ("Timor-Leste — Dili", "UTC+09:00"),
+    ("Palau — Ngerulmud", "UTC+09:00"),
+    # UTC+9:30
+    ("Australia — Darwin", "UTC+09:30"),
+    ("Australia — Adelaide", "UTC+09:30"),
+    # UTC+10
+    ("Australia — Sydney", "UTC+10:00"),
+    ("Australia — Melbourne", "UTC+10:00"),
+    ("Australia — Brisbane", "UTC+10:00"),
+    ("Australia — Canberra", "UTC+10:00"),
+    ("Papua New Guinea — Port Moresby", "UTC+10:00"),
+    ("Guam — Hagatna", "UTC+10:00"),
+    # UTC+11
+    ("Solomon Islands — Honiara", "UTC+11:00"),
+    ("New Caledonia — Noumea", "UTC+11:00"),
+    ("Vanuatu — Port Vila", "UTC+11:00"),
+    ("Micronesia — Palikir", "UTC+11:00"),
+    # UTC+12
+    ("New Zealand — Auckland", "UTC+12:00"),
+    ("New Zealand — Wellington", "UTC+12:00"),
+    ("Fiji — Suva", "UTC+12:00"),
+    ("Marshall Islands — Majuro", "UTC+12:00"),
+    ("Tuvalu — Funafuti", "UTC+12:00"),
+    ("Nauru — Yaren", "UTC+12:00"),
+    ("Kiribati — Tarawa", "UTC+12:00"),
+    # UTC+13
+    ("Tonga — Nuku'alofa", "UTC+13:00"),
+    ("Samoa — Apia", "UTC+13:00"),
+    # UTC+14
+    ("Kiribati — Line Islands", "UTC+14:00"),
+]
 
-TIMEZONE_OPTIONS = ["(Select your timezone)"] + _all_tz
+TIMEZONE_OPTIONS = ["(Select your timezone)"] + [f"{country} ({utc})" for country, utc in _TZ_DATA]
 
 # ---------------------------------------------------------------------------
 # Session-state initialiser
@@ -1275,8 +1526,7 @@ def render_step_3():
         tz_idx = 0
         if tz_current in TIMEZONE_OPTIONS:
             tz_idx = TIMEZONE_OPTIONS.index(tz_current)
-        timezone = st.selectbox("Time Zone *", TIMEZONE_OPTIONS, index=tz_idx,
-                                help="Select the timezone where you are currently located")
+        timezone = st.selectbox("Time zone in your current location *", TIMEZONE_OPTIONS, index=tz_idx)
 
         address = st.text_area("Full Address * (House No, Street, City, State/Province, Postal Code, Country)",
                                value=st.session_state["address"],
@@ -1285,9 +1535,8 @@ def render_step_3():
 
         profile_link = st.text_input("Upwork / LinkedIn Profile Link",
                                      value=st.session_state["profile_link"])
-        teaching_schedule = st.text_area("Preferred Teaching Schedule",
+        teaching_schedule = st.text_area("Preferred Teaching Schedule * (Specify days, time and time zone)",
                                          value=st.session_state["teaching_schedule"],
-                                         help="Specify days, time and timezone",
                                          height=80)
 
         payment_pref = st.selectbox("Payment Preference *",
@@ -1297,10 +1546,9 @@ def render_step_3():
                                            if st.session_state["payment_pref"] in ["Upwork", "Wise", "Bank Transfer"]
                                            else "Upwork"))
 
-        tax_info = st.text_area("Tax Information *",
+        tax_info = st.text_area("Tax Information * (Tax ID/Number, Registered Address, Phone Number)",
                                 value=st.session_state["tax_info"],
                                 placeholder="Example: Tax ID: RFC XXXX000000XX0, Address: 123 Main Street, Mexico City, Phone: +52 55 1234 5678",
-                                help="Tax ID/Number, Registered Address, Phone Number — must be complete for invoicing purposes",
                                 height=80)
 
         st.markdown('</div>', unsafe_allow_html=True)
