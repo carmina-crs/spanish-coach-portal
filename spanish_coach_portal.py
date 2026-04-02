@@ -224,6 +224,7 @@ try:
 except Exception:
     GOOGLE_SA_JSON = get_secret("google_service_account_json", "")
 GOOGLE_DRIVE_FOLDER = get_secret("google_drive_folder_id", "")
+GOOGLE_SHEET_ID = get_secret("google_sheet_id", "")
 
 # Questions config URL (optional — for editing questions via GitHub)
 QUESTIONS_CONFIG_URL = get_secret("questions_config_url", "")
@@ -1129,6 +1130,89 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, applicant_email, msg.as_string())
+
+
+# ---------------------------------------------------------------------------
+# Google Sheets logging
+# ---------------------------------------------------------------------------
+
+SHEET_HEADERS = [
+    "Submission Date", "Name", "Email", "Age", "Country of Origin",
+    "Current Location", "Time Zone", "Mobile", "WhatsApp",
+    "Address", "Tax Information", "Payment Preference",
+    "Teaching Schedule", "Profile Link",
+    "Native Speaker", "Type of Spanish", "Years Teaching",
+    "Certifications", "Students Taught", "Teach A1-C2", "Levels Detail",
+    "DELE Experience", "DELE Detail", "Current Platforms",
+    "Testimonial Link",
+    "English Level", "Ideal Rate (USD)",
+    "AI Score", "AI Verdict", "AI Summary",
+    "Video Mode", "Video Link",
+    "Files Link",
+]
+
+
+def append_to_google_sheet(state: dict, analysis: dict, drive_link: str = ""):
+    """Append one row to the Google Sheet for this applicant."""
+    if not GOOGLE_SA_JSON or not GOOGLE_SHEET_ID:
+        return
+
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        sa_info = json.loads(GOOGLE_SA_JSON)
+        creds = Credentials.from_service_account_info(sa_info, scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+        ])
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        ws = sh.sheet1
+
+        # Auto-create headers if sheet is empty
+        existing = ws.get_all_values()
+        if not existing:
+            ws.append_row(SHEET_HEADERS, value_input_option="RAW")
+
+        full_name = f"{state.get('first_name', '')} {state.get('last_name', '')}".strip()
+        row = [
+            datetime.now().strftime("%Y-%m-%d %H:%M"),
+            full_name,
+            state.get("email", ""),
+            str(state.get("age", "")),
+            state.get("country_origin", ""),
+            state.get("current_location", ""),
+            state.get("timezone", ""),
+            state.get("mobile", ""),
+            state.get("whatsapp", ""),
+            state.get("address", ""),
+            state.get("tax_info", ""),
+            state.get("payment_pref", ""),
+            state.get("teaching_schedule", ""),
+            state.get("profile_link", ""),
+            state.get("native_spanish", ""),
+            state.get("spanish_type", ""),
+            str(state.get("years_teaching", "")),
+            state.get("certifications", ""),
+            state.get("students_taught", ""),
+            state.get("all_levels", ""),
+            state.get("levels_detail", ""),
+            state.get("dele_exp", ""),
+            state.get("dele_detail", ""),
+            state.get("current_platforms", ""),
+            state.get("testimonial_link", ""),
+            state.get("english_level", ""),
+            state.get("ideal_rate", ""),
+            str(analysis.get("overall_score", "")),
+            analysis.get("verdict", ""),
+            analysis.get("summary", ""),
+            state.get("video_mode", ""),
+            state.get("video_link", ""),
+            drive_link,
+        ]
+        ws.append_row(row, value_input_option="USER_ENTERED")
+    except Exception as e:
+        st.warning(f"Could not log to Google Sheet: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -2281,12 +2365,12 @@ def run_submission():
                 cert_texts.append(t)
 
         # 3. Claude analysis
-        update_status("Running AI analysis (this may take 30\u201360 seconds)...", 0.45)
+        update_status("Reviewing your application (this may take 30\u201360 seconds)...", 0.45)
         analysis = {}
         try:
             analysis = run_claude_analysis(state, cv_text, cert_texts)
         except Exception as e:
-            st.warning(f"AI analysis could not be completed: {e}. Proceeding without it.")
+            st.warning(f"Application review could not be completed: {e}. Proceeding without it.")
             analysis = {
                 "coach_name": full_name,
                 "upwork_link": state["profile_link"],
@@ -2307,11 +2391,11 @@ def run_submission():
                 "quiz_notes": "Analysis unavailable.",
                 "cv_summary": "Analysis unavailable.",
                 "strengths": [],
-                "concerns": ["AI analysis could not be completed."],
+                "concerns": ["Automated review could not be completed."],
                 "missing_elements": [],
                 "overall_score": 0,
                 "verdict": "NEEDS FURTHER REVIEW",
-                "verdict_reason": "Manual review required \u2014 AI analysis failed.",
+                "verdict_reason": "Manual review required \u2014 automated review failed.",
                 "summary": "Application received. Manual review needed.",
                 "recommended_action": "Review application manually.",
             }
@@ -2387,6 +2471,10 @@ def run_submission():
             send_applicant_confirmation(state["email"], full_name)
         except Exception:
             pass
+
+        # 7. Log to Google Sheet
+        update_status("Logging application to spreadsheet...", 0.92)
+        append_to_google_sheet(state, analysis, drive_link)
 
         update_status("Submission complete!", 1.0)
 
