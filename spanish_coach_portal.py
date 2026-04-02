@@ -520,8 +520,8 @@ DEFAULTS = {
     "handle_criticism": "", "teamwork": "", "follow_process": "Yes",
     "first_session_win": "", "session_notes_ok": "Yes", "english_level": "Advanced/C1-C2",
     "respond_24h": "Yes", "ideal_rate": "", "hours_per_week": 10,
-    "confirm_communication": False, "confirm_payment": False,
-    "confirm_taxes": False, "confirm_parttime": False,
+    "confirm_communication": None, "confirm_payment": None,
+    "confirm_taxes": None, "confirm_parttime": None,
     # Step 9 – Quiz
     "quiz_1": "", "quiz_2": "", "quiz_3": "", "quiz_4": "",
     "quiz_5": "", "quiz_6": "", "quiz_7": "", "quiz_8": "",
@@ -570,14 +570,16 @@ def show_step_pill(step: int, total: int = 10):
         <span class="progress-pct">{pct}% complete</span>
     </div>""", unsafe_allow_html=True)
     st.progress(progress_pct(step))
-    # Save progress button (small, right-aligned)
+
+
+def show_save_button(step: int):
+    """Render a prominent Save My Progress button below navigation."""
     try:
-        with st.expander("Save progress for later"):
-            st.markdown("Download your progress file. You can upload it on the welcome page to resume later. (Files will need to be re-uploaded.)")
-            progress_json = json.dumps(get_saveable_state(), indent=2, default=str)
-            st.download_button("Save My Progress", progress_json,
-                               "my_spanish_coach_application.json", "application/json",
-                               use_container_width=True, key=f"save_step_{step}")
+        st.markdown("---")
+        progress_json = json.dumps(get_saveable_state(), indent=2, default=str)
+        st.download_button("\U0001f4be Save My Progress", progress_json,
+                           "my_spanish_coach_application.json", "application/json",
+                           use_container_width=True, key=f"save_step_{step}")
     except Exception:
         pass
 
@@ -1151,7 +1153,9 @@ def render_step_0():
     <h3 style="margin-top:0;">Welcome!</h3>
     <p>Apply to become a certified Spanish coach with our platform.<br>
     Complete all steps carefully — this usually takes <strong>20–30 minutes</strong>.</p>
-    <p>You can <strong>save your progress</strong> at any time and come back to finish later.</p>
+    <p>If you cannot finish your application now, use the <strong>"Save My Progress"</strong> button at the bottom of each step — a <code>.json</code> file will be downloaded to your device (check your Downloads folder).</p>
+    <p>When you're ready to continue, simply upload that <code>.json</code> file below to pick up where you left off.<br>
+    <strong>Don't forget to save and download your progress before leaving if you want to resume later.</strong></p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1169,13 +1173,7 @@ def render_step_0():
 
     # Resume from saved progress
     st.markdown("---")
-    st.markdown("""
-    <div class="section-card">
-    <strong>Returning applicant?</strong><br>
-    If you previously saved your progress, you will have downloaded a <code>.json</code> file.
-    Upload that file below to pick up where you left off. <em>(This only applies if you used the "Save Progress" button during a previous session.)</em>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("**Returning applicant?** Upload your saved progress file below:")
     resume_file = st.file_uploader("Upload your saved progress file (.json)",
                                     type=["json"], key="resume_uploader")
     if resume_file:
@@ -1265,6 +1263,8 @@ def render_step_1():
                 st.session_state["cert_files"] = saved_certs
                 st.session_state["photo_file"] = saved_photo
                 go_to(2); st.rerun()
+
+    show_save_button(1)
 
 
 # ---------------------------------------------------------------------------
@@ -1485,6 +1485,8 @@ def render_step_2():
             else:
                 go_to(3); st.rerun()
 
+    show_save_button(2)
+
 
 # ---------------------------------------------------------------------------
 # Step 3 — Personal Information
@@ -1595,6 +1597,8 @@ def render_step_3():
     if st.button("\u2190 Back", use_container_width=True, key="back3"):
         go_to(2); st.rerun()
 
+    show_save_button(3)
+
 
 # ---------------------------------------------------------------------------
 # Step 4 — Professional Background
@@ -1700,6 +1704,8 @@ def render_step_4():
                 })
                 go_to(5); st.rerun()
 
+    show_save_button(4)
+
 
 # ---------------------------------------------------------------------------
 # Dynamic step renderer for config-driven steps (5, 6, 7)
@@ -1781,6 +1787,8 @@ def render_dynamic_step(step_num: int):
     if st.button("\u2190 Back", use_container_width=True, key=f"back{step_num}"):
         go_to(prev_step); st.rerun()
 
+    show_save_button(step_num)
+
 
 # ---------------------------------------------------------------------------
 # Hardcoded fallbacks for steps 5, 6, 7
@@ -1826,6 +1834,8 @@ def _render_step_5_hardcoded():
 
     if st.button("\u2190 Back", use_container_width=True, key="back5"):
         go_to(4); st.rerun()
+
+    show_save_button(5)
 
 
 def _render_step_6_hardcoded():
@@ -1876,6 +1886,8 @@ def _render_step_6_hardcoded():
     if st.button("\u2190 Back", use_container_width=True, key="back6"):
         go_to(5); st.rerun()
 
+    show_save_button(6)
+
 
 def _render_step_7_hardcoded():
     show_header("Spanish Coach Application")
@@ -1908,6 +1920,8 @@ def _render_step_7_hardcoded():
 
     if st.button("\u2190 Back", use_container_width=True, key="back7"):
         go_to(6); st.rerun()
+
+    show_save_button(7)
 
 
 # Wrapper functions for dynamic steps
@@ -1961,24 +1975,31 @@ def render_step_8():
         st.markdown("---")
         st.markdown("**Please confirm all of the following to proceed:**")
 
+        _confirm_opts = ["Yes", "No"]
+        def _confirm_idx(key):
+            v = st.session_state.get(key)
+            if v is True: return 0
+            if v is False: return 1
+            return None
+
         st.markdown("Effective communication is key in this role. Our coaches are expected to respond to team emails and student messages within 24 hours on weekdays. Can you confirm if you're able to commit to this?")
-        confirm_communication = st.radio("", ["Yes", "No"],
-            index=0 if st.session_state["confirm_communication"] else 1,
+        confirm_communication = st.radio("", _confirm_opts,
+            index=_confirm_idx("confirm_communication"),
             horizontal=True, key="confirm_communication_radio")
 
         st.markdown("Payment Basis: Coaches are compensated only for completed online sessions. Onboarding, preparation, waiting periods, or unassigned time are not billable. Do you agree with this term?")
-        confirm_payment = st.radio("", ["Yes", "No"],
-            index=0 if st.session_state["confirm_payment"] else 1,
+        confirm_payment = st.radio("", _confirm_opts,
+            index=_confirm_idx("confirm_payment"),
             horizontal=True, key="confirm_payment_radio")
 
         st.markdown("Tax Responsibility: As a freelancer, you are responsible for your own tax obligations based on the laws in your country. Do you fully understand your tax obligations as a freelancer and agree to handle them independently?")
-        confirm_taxes = st.radio("", ["Yes", "No"],
-            index=0 if st.session_state["confirm_taxes"] else 1,
+        confirm_taxes = st.radio("", _confirm_opts,
+            index=_confirm_idx("confirm_taxes"),
             horizontal=True, key="confirm_taxes_radio")
 
         st.markdown("Part-time role & student assignments: This is a part-time position and should not be considered your primary source of income. Student assignments and volume depend on active enrollment, location, schedule compatibility, time zone and specific dialect preferences. While Lingohabit strives to provide and distribute students fairly and maintain a consistent rotation among coaches, assignment timing and volume cannot be guaranteed. There may be waiting periods between coach onboarding and first student assignment, which can range from several days to a few weeks. Payment begins only after the first confirmed session with an assigned student. Do you understand and agree to these terms?")
-        confirm_parttime = st.radio("", ["Yes", "No"],
-            index=0 if st.session_state["confirm_parttime"] else 1,
+        confirm_parttime = st.radio("", _confirm_opts,
+            index=_confirm_idx("confirm_parttime"),
             horizontal=True, key="confirm_parttime_radio")
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1991,14 +2012,22 @@ def render_step_8():
             errors.append("Please answer all questions in this section before proceeding.")
         if not ideal_rate.strip():
             errors.append("Ideal rate is required.")
-        if confirm_communication != "Yes":
-            errors.append("Please select 'Yes' for the communication commitment.")
-        if confirm_payment != "Yes":
-            errors.append("Please select 'Yes' for the payment basis terms.")
-        if confirm_taxes != "Yes":
-            errors.append("Please select 'Yes' for the tax responsibility terms.")
-        if confirm_parttime != "Yes":
-            errors.append("Please select 'Yes' for the part-time role & student assignment terms.")
+        if confirm_communication is None:
+            errors.append("Please select Yes or No for the communication commitment.")
+        elif confirm_communication != "Yes":
+            errors.append("You must select 'Yes' for the communication commitment to proceed.")
+        if confirm_payment is None:
+            errors.append("Please select Yes or No for the payment basis terms.")
+        elif confirm_payment != "Yes":
+            errors.append("You must select 'Yes' for the payment basis terms to proceed.")
+        if confirm_taxes is None:
+            errors.append("Please select Yes or No for the tax responsibility terms.")
+        elif confirm_taxes != "Yes":
+            errors.append("You must select 'Yes' for the tax responsibility terms to proceed.")
+        if confirm_parttime is None:
+            errors.append("Please select Yes or No for the part-time role & student assignment terms.")
+        elif confirm_parttime != "Yes":
+            errors.append("You must select 'Yes' for the part-time role & student assignment terms to proceed.")
 
         if errors:
             for e in errors: st.error(e)
@@ -2017,6 +2046,8 @@ def render_step_8():
 
     if st.button("\u2190 Back", use_container_width=True, key="back8"):
         go_to(7); st.rerun()
+
+    show_save_button(8)
 
 
 # ---------------------------------------------------------------------------
@@ -2077,6 +2108,8 @@ def render_step_9():
 
     if st.button("\u2190 Back", use_container_width=True, key="back9"):
         go_to(8); st.rerun()
+
+    show_save_button(9)
 
 
 # ---------------------------------------------------------------------------
