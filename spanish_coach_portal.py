@@ -2338,6 +2338,199 @@ def render_step_10():
 
 
 # ---------------------------------------------------------------------------
+# PDF generation
+# ---------------------------------------------------------------------------
+
+QUIZ_QUESTIONS = [
+    "1. What are the key commitments and promises we make to students enrolled in the program?",
+    "2. What should a coach do upon receiving a student's study plan from the team?",
+    "3. Describe what the 12-week study plan typically includes.",
+    "4. What should coaches do with the study plan every 2\u20133 weeks?",
+    "5. What are the weekly non-negotiable tasks assigned to students, and what is the coach\u2019s responsibility regarding these?",
+    "6. When and how should the coach reach out to the student upon receiving their details from the team?",
+    "7. How are you going to use the student details provided by the team (level, goals, interests, challenges) to prepare for your first session?",
+    "8. What is the goal of the first session, and what should it NOT be focused entirely on?",
+    "9. What is the purpose of the student profile sheet, and how often should it be updated?",
+    "10. Explain the BAMFAM approach and how it should be applied in sessions.",
+    "11. Who is responsible for checking and providing feedback on the student\u2019s essay exercises, and how should students submit their essays?",
+    "12. What is the expected response time for coaches to reply to student or team messages on weekdays and weekends?",
+]
+
+
+def generate_application_pdf(state: dict, folder: Path) -> Path:
+    """Generate a formatted PDF of the full coach application."""
+    from fpdf import FPDF
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Helvetica", "B", 16)
+            self.set_text_color(192, 57, 43)
+            self.cell(0, 10, "Spanish Coach Application", align="C", new_x="LMARGIN", new_y="NEXT")
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(120, 120, 120)
+            self.cell(0, 5, "My Daily Spanish / Lingohabit", align="C", new_x="LMARGIN", new_y="NEXT")
+            self.ln(4)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Helvetica", "I", 8)
+            self.set_text_color(150, 150, 150)
+            self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", align="C")
+
+        def section_title(self, title):
+            self.set_font("Helvetica", "B", 12)
+            self.set_text_color(192, 57, 43)
+            self.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT")
+            self.set_draw_color(192, 57, 43)
+            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+            self.ln(3)
+
+        def field(self, label, value):
+            self.set_font("Helvetica", "B", 10)
+            self.set_text_color(50, 50, 50)
+            self.cell(60, 6, f"{label}:", new_x="END")
+            self.set_font("Helvetica", "", 10)
+            self.set_text_color(0, 0, 0)
+            self.multi_cell(0, 6, _safe(value))
+            self.ln(1)
+
+        def qa(self, question, answer):
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(50, 50, 50)
+            self.multi_cell(0, 5, _safe(question))
+            self.set_font("Helvetica", "", 10)
+            self.set_text_color(0, 0, 0)
+            self.multi_cell(0, 5, _safe(answer) if answer else "(No answer)")
+            self.ln(3)
+
+    def _safe(val):
+        """Convert value to safe string for PDF."""
+        if val is None:
+            return ""
+        s = str(val).strip()
+        # Replace problematic characters for latin-1
+        s = s.replace("\u2014", "--").replace("\u2013", "-").replace("\u2019", "'")
+        s = s.replace("\u201c", '"').replace("\u201d", '"').replace("\u2018", "'")
+        s = s.replace("\u2022", "-").replace("\u2026", "...").replace("\u00a0", " ")
+        return s
+
+    full_name = f"{state.get('first_name', '')} {state.get('last_name', '')}".strip()
+
+    pdf = PDF()
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # Submission info
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"Submitted: {datetime.now().strftime('%B %d, %Y at %H:%M')}", align="R",
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # --- Personal Info ---
+    pdf.section_title("Personal Information")
+    pdf.field("Name", full_name)
+    pdf.field("Email", state.get("email", ""))
+    pdf.field("Age", state.get("age", ""))
+    pdf.field("Country of Origin", state.get("country_origin", ""))
+    pdf.field("Current Location", state.get("current_location", ""))
+    pdf.field("Time Zone", state.get("timezone", ""))
+    pdf.field("Mobile", state.get("mobile", ""))
+    pdf.field("WhatsApp", state.get("whatsapp", ""))
+    pdf.field("Address", state.get("address", ""))
+    pdf.field("Tax Information", state.get("tax_info", ""))
+    pdf.field("Payment Preference", state.get("payment_pref", ""))
+    pdf.field("Teaching Schedule", state.get("teaching_schedule", ""))
+    pdf.field("Profile Link", state.get("profile_link", ""))
+    pdf.ln(3)
+
+    # --- Professional Background ---
+    pdf.section_title("Professional Background")
+    pdf.field("Native Speaker", state.get("native_spanish", ""))
+    pdf.field("Type of Spanish", state.get("spanish_type", ""))
+    pdf.field("Years Teaching", state.get("years_teaching", ""))
+    pdf.field("Certifications", state.get("certifications", ""))
+    pdf.field("Students Taught", state.get("students_taught", ""))
+    pdf.field("Teach A1-C2", state.get("all_levels", ""))
+    pdf.field("Level Details", state.get("levels_detail", ""))
+    pdf.field("DELE Experience", state.get("dele_exp", ""))
+    pdf.field("DELE Detail", state.get("dele_detail", ""))
+    pdf.field("Current Platforms", state.get("current_platforms", ""))
+    pdf.field("Testimonial Link", state.get("testimonial_link", ""))
+    pdf.ln(3)
+
+    # --- Teaching Philosophy (Step 5) ---
+    pdf.section_title("Teaching Philosophy, Engagement & Motivation")
+    pdf.qa("1. How do you assess a student's proficiency in Spanish before starting lessons?",
+           state.get("assess_proficiency", ""))
+    pdf.qa("2. How do you tailor your lessons to suit different learning styles and proficiency levels?",
+           state.get("tailor_lessons", ""))
+    pdf.qa("3. Can you give an example of a particularly successful lesson or course you've delivered?",
+           state.get("successful_lesson", ""))
+    pdf.qa("4. How do you keep online lessons engaging and interactive for students?",
+           state.get("engaging_online", ""))
+    pdf.qa("5. How long do students typically stay with you, and what contributes to student retention?",
+           state.get("student_duration", ""))
+    pdf.qa("6. What strategies do you use to motivate students who are struggling or losing interest?",
+           state.get("motivate_struggling", ""))
+    pdf.qa("7. How do you ensure that students are not only learning effectively but also enjoying the process?",
+           state.get("enjoy_process", ""))
+
+    # --- Technology (Step 6) ---
+    pdf.section_title("Technology, Assessment & Adapting to Challenges")
+    pdf.qa("1. Do you incorporate multimedia resources or cultural content into your lessons?",
+           state.get("multimedia_examples", "") or state.get("multimedia", ""))
+    pdf.qa("2. Do you have a quality microphone, webcam, stable internet, and a quiet workspace?",
+           state.get("tech_setup", ""))
+    pdf.qa("3. Which software or platforms do you use for conducting online classes?",
+           state.get("software_other", "") or state.get("software", ""))
+    pdf.qa("4. How do you assess your students' progress, and how often do you provide evaluations?",
+           state.get("assess_progress", ""))
+    pdf.qa("5. How do you provide constructive and motivating feedback to your students?",
+           state.get("feedback_style", ""))
+    pdf.qa("6. Can you share an example of adapting your teaching for a particularly challenging student?",
+           state.get("adapt_teaching", ""))
+    pdf.qa("7. Can you give an example of a cultural lesson or activity essential for learning Spanish?",
+           state.get("cultural_lesson", ""))
+
+    # --- Professional Development (Step 7) ---
+    pdf.section_title("Professional Development & Scenarios")
+    pdf.qa("1. What steps do you take to continuously improve your teaching skills?",
+           state.get("improve_skills", ""))
+    pdf.qa("2. Are there areas of Spanish language teaching you are currently excited to develop?",
+           state.get("excited_areas", ""))
+    pdf.qa("3. A student consistently makes the same grammatical error. How would you address this?",
+           state.get("grammar_error", ""))
+    pdf.qa("4. How would you structure a lesson plan for a beginner vs. an advanced student?",
+           state.get("lesson_plan_levels", ""))
+
+    # --- Team & Communication (Step 8) ---
+    pdf.section_title("Team, Communication & Rate")
+    pdf.qa("1. How do you respond to constructive criticism from a supervisor?",
+           state.get("handle_criticism", ""))
+    pdf.qa("2. How comfortable are you working closely with a team?",
+           state.get("teamwork", ""))
+    pdf.field("Follow a set process", state.get("follow_process", ""))
+    pdf.qa("4. In our program, the first session must give the student a 'quick win'. How would you do this?",
+           state.get("first_session_win", ""))
+    pdf.field("Session notes OK", state.get("session_notes_ok", ""))
+    pdf.field("English Level", state.get("english_level", ""))
+    pdf.field("Ideal Rate (USD)", state.get("ideal_rate", ""))
+    pdf.ln(3)
+
+    # --- Quiz (Step 9) ---
+    pdf.section_title("Program Understanding Quiz")
+    for i, q in enumerate(QUIZ_QUESTIONS, start=1):
+        pdf.qa(q, state.get(f"quiz_{i}", ""))
+
+    # Save
+    pdf_path = folder / f"{full_name.replace(' ', '_')}_Application.pdf"
+    pdf.output(str(pdf_path))
+    return pdf_path
+
+
+# ---------------------------------------------------------------------------
 # Submission pipeline
 # ---------------------------------------------------------------------------
 
@@ -2357,7 +2550,15 @@ def run_submission():
         update_status("Saving your files...", 0.1)
         folder = save_submission_files(state)
 
-        # 2. Extract document text
+        # 2. Generate application PDF
+        update_status("Generating application PDF...", 0.18)
+        pdf_path = None
+        try:
+            pdf_path = generate_application_pdf(state, folder)
+        except Exception as e:
+            st.warning(f"PDF generation failed: {e}")
+
+        # 3. Extract document text
         update_status("Processing documents...", 0.25)
         cv_text   = ""
         cert_texts = []
@@ -2464,6 +2665,10 @@ def run_submission():
                 for i in range(1, len(state["cert_files"]) + 1):
                     cert_ext = Path(state["cert_files"][i-1].name).suffix
                     attach_paths.append(folder / f"certificate_{i}{cert_ext}")
+
+        # Always attach the PDF
+        if pdf_path and pdf_path.exists():
+            attach_paths.append(pdf_path)
 
         email_sent = True
         email_error = ""
