@@ -501,7 +501,7 @@ DEFAULTS = {
     "timezone": "", "profile_link": "", "teaching_schedule": "",
     "payment_pref": "Upwork", "tax_info": "",
     # Step 4 – Background
-    "native_spanish": "Yes", "spanish_type": "", "years_teaching": 0,
+    "native_spanish": "Yes", "spanish_type": "", "years_teaching": "",
     "certifications": "", "students_taught": "", "all_levels": "Yes",
     "levels_detail": "", "testimonial_files": [], "testimonial_link": "",
     "dele_exp": "No", "dele_detail": "", "current_platforms": "",
@@ -835,9 +835,7 @@ Follow Process: {state['follow_process']}
 First Session Win: {state['first_session_win']}
 Session Notes OK: {state['session_notes_ok']}
 English Level: {state['english_level']}
-Respond 24h: {state['respond_24h']}
-Ideal Rate: {state['ideal_rate']}
-Hours Per Week: {state['hours_per_week']}
+Ideal Rate (USD): {state['ideal_rate']}
 
 === PROGRAM QUIZ ANSWERS ===
 {quiz_answers}
@@ -1160,7 +1158,7 @@ def render_step_0():
     st.markdown("### Before you begin, please have ready:")
     items = [
         "Your <strong>CV / Resume in English</strong> (PDF or Word document)",
-        "Your <strong>teaching certificates</strong> (PDF)",
+        "Your <strong>relevant certificates</strong> — degree or recognized teaching certificate in Spanish or education (PDF, PNG, or JPG)",
         "A <strong>professional photo</strong> of yourself (PNG or JPG)",
         "A <strong>short introduction video</strong> (2–5 min) in Spanish and English — <strong>good video quality, no background noise</strong>",
     ]
@@ -1171,7 +1169,14 @@ def render_step_0():
 
     # Resume from saved progress
     st.markdown("---")
-    resume_file = st.file_uploader("Have a saved progress file? Upload it here to continue where you left off:",
+    st.markdown("""
+    <div class="section-card">
+    <strong>Returning applicant?</strong><br>
+    If you previously saved your progress, you will have downloaded a <code>.json</code> file.
+    Upload that file below to pick up where you left off. <em>(This only applies if you used the "Save Progress" button during a previous session.)</em>
+    </div>
+    """, unsafe_allow_html=True)
+    resume_file = st.file_uploader("Upload your saved progress file (.json)",
                                     type=["json"], key="resume_uploader")
     if resume_file:
         try:
@@ -1201,7 +1206,7 @@ def render_step_1():
     <p>Please upload your documents below. We will review them as part of your application.</p>
     <ul>
         <li><strong>CV / Resume</strong> — Must be <strong>in English</strong></li>
-        <li><strong>Teaching Certificates</strong> — At least one required</li>
+        <li><strong>Relevant Certificates</strong> — Degree or recognized teaching certificate in Spanish or education</li>
         <li><strong>Professional Photo</strong> — Clear, professional-looking headshot</li>
     </ul>
     </div>
@@ -1210,8 +1215,8 @@ def render_step_1():
     cv_file    = st.file_uploader("CV / Resume (in English) — PDF or DOCX",
                                   type=["pdf", "docx", "doc"],
                                   key="cv_uploader")
-    cert_files = st.file_uploader("Teaching Certificates — PDF (at least one required)",
-                                  type=["pdf"],
+    cert_files = st.file_uploader("Relevant Certificates — Degree or recognized teaching certificate in Spanish or education (PDF, PNG, or JPG)",
+                                  type=["pdf", "png", "jpg", "jpeg"],
                                   accept_multiple_files=True,
                                   key="cert_uploader")
     photo_file = st.file_uploader("Professional Photo — PNG or JPG",
@@ -1610,9 +1615,9 @@ def render_step_4():
         value=st.session_state["spanish_type"],
         height=80)
 
-    years_teaching = st.number_input("3. How many years have you been teaching Spanish?",
-                                     min_value=0, max_value=60,
-                                     value=st.session_state["years_teaching"])
+    years_teaching = st.text_input("3. How many years have you been teaching Spanish?",
+                                   value=str(st.session_state["years_teaching"]) if st.session_state["years_teaching"] else "",
+                                   placeholder="e.g. 5")
 
     certifications = st.text_area(
         "4. What degrees or certifications do you hold in Spanish or language teaching? If none, list any other certifications you have.",
@@ -1672,6 +1677,7 @@ def render_step_4():
         if st.button("Continue \u2192", type="primary", use_container_width=True, key="next4"):
             errors = []
             if not spanish_type.strip():     errors.append("Please describe your type of Spanish.")
+            if not str(years_teaching).strip(): errors.append("Years of teaching experience is required.")
             if not certifications.strip():   errors.append("Certifications field is required.")
             if not students_taught.strip():  errors.append("Students Taught field is required.")
             if not current_platforms.strip(): errors.append("Current Platforms field is required.")
@@ -1935,7 +1941,7 @@ def render_step_8():
                                     index=["Yes","No","Somewhat"].index(st.session_state["follow_process"]),
                                     horizontal=True)
 
-        first_session_win = st.text_area('4. How would you structure the first session to give the student a "quick win"?',
+        first_session_win = st.text_area('4. In our program, the first session must give the student a "quick win"\u2014something they can apply right away. How would you do this in practice?',
                                          value=st.session_state["first_session_win"], height=100)
 
         session_notes_ok = st.radio("5. Are you comfortable with session notes and tracker updates immediately after each session?",
@@ -1948,36 +1954,32 @@ def render_step_8():
                                      english_opts,
                                      index=english_opts.index(st.session_state["english_level"]))
 
-        respond_24h = st.radio("7. Can you commit to responding within 24h on weekdays and 48h on weekends?",
-                               ["Yes", "No"],
-                               index=["Yes","No"].index(st.session_state["respond_24h"]),
-                               horizontal=True)
-
-        ideal_rate     = st.text_input("8. What is your ideal hourly rate for this role?",
+        ideal_rate     = st.text_input("7. What is your ideal hourly rate for this role? (in USD)",
                                        value=st.session_state["ideal_rate"],
                                        placeholder="e.g. $15/hr")
-        hours_per_week = st.number_input("9. How many hours per week can you dedicate?",
-                                         min_value=1, max_value=80,
-                                         value=st.session_state["hours_per_week"])
 
         st.markdown("---")
         st.markdown("**Please confirm all of the following to proceed:**")
 
-        confirm_communication = st.checkbox(
-            "Effective communication is key in this role. Our coaches are expected to respond to team emails and student messages within 24 hours on weekdays. Can you confirm if you're able to commit to this?",
-            value=st.session_state["confirm_communication"])
+        st.markdown("Effective communication is key in this role. Our coaches are expected to respond to team emails and student messages within 24 hours on weekdays. Can you confirm if you're able to commit to this?")
+        confirm_communication = st.radio("", ["Yes", "No"],
+            index=0 if st.session_state["confirm_communication"] else 1,
+            horizontal=True, key="confirm_communication_radio")
 
-        confirm_payment = st.checkbox(
-            "Payment Basis: Coaches are compensated only for completed online sessions. Onboarding, preparation, waiting periods, or unassigned time are not billable. Do you agree with this term?",
-            value=st.session_state["confirm_payment"])
+        st.markdown("Payment Basis: Coaches are compensated only for completed online sessions. Onboarding, preparation, waiting periods, or unassigned time are not billable. Do you agree with this term?")
+        confirm_payment = st.radio("", ["Yes", "No"],
+            index=0 if st.session_state["confirm_payment"] else 1,
+            horizontal=True, key="confirm_payment_radio")
 
-        confirm_taxes = st.checkbox(
-            "Tax Responsibility: As a freelancer, you are responsible for your own tax obligations based on the laws in your country. Do you fully understand your tax obligations as a freelancer and agree to handle them independently?",
-            value=st.session_state["confirm_taxes"])
+        st.markdown("Tax Responsibility: As a freelancer, you are responsible for your own tax obligations based on the laws in your country. Do you fully understand your tax obligations as a freelancer and agree to handle them independently?")
+        confirm_taxes = st.radio("", ["Yes", "No"],
+            index=0 if st.session_state["confirm_taxes"] else 1,
+            horizontal=True, key="confirm_taxes_radio")
 
-        confirm_parttime = st.checkbox(
-            "Part-time role & student assignments: This is a part-time position and should not be considered your primary source of income. Student assignments and volume depend on active enrollment, location, schedule compatibility, time zone and specific dialect preferences. While Lingohabit strives to provide and distribute students fairly and maintain a consistent rotation among coaches, assignment timing and volume cannot be guaranteed. There may be waiting periods between coach onboarding and first student assignment, which can range from several days to a few weeks. Payment begins only after the first confirmed session with an assigned student. Do you understand and agree to these terms?",
-            value=st.session_state["confirm_parttime"])
+        st.markdown("Part-time role & student assignments: This is a part-time position and should not be considered your primary source of income. Student assignments and volume depend on active enrollment, location, schedule compatibility, time zone and specific dialect preferences. While Lingohabit strives to provide and distribute students fairly and maintain a consistent rotation among coaches, assignment timing and volume cannot be guaranteed. There may be waiting periods between coach onboarding and first student assignment, which can range from several days to a few weeks. Payment begins only after the first confirmed session with an assigned student. Do you understand and agree to these terms?")
+        confirm_parttime = st.radio("", ["Yes", "No"],
+            index=0 if st.session_state["confirm_parttime"] else 1,
+            horizontal=True, key="confirm_parttime_radio")
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
 
@@ -1989,14 +1991,14 @@ def render_step_8():
             errors.append("Please answer all questions in this section before proceeding.")
         if not ideal_rate.strip():
             errors.append("Ideal rate is required.")
-        if not confirm_communication:
-            errors.append("Please confirm the communication commitment.")
-        if not confirm_payment:
-            errors.append("Please confirm the payment basis terms.")
-        if not confirm_taxes:
-            errors.append("Please confirm the tax responsibility terms.")
-        if not confirm_parttime:
-            errors.append("Please confirm the part-time role & student assignment terms.")
+        if confirm_communication != "Yes":
+            errors.append("Please select 'Yes' for the communication commitment.")
+        if confirm_payment != "Yes":
+            errors.append("Please select 'Yes' for the payment basis terms.")
+        if confirm_taxes != "Yes":
+            errors.append("Please select 'Yes' for the tax responsibility terms.")
+        if confirm_parttime != "Yes":
+            errors.append("Please select 'Yes' for the part-time role & student assignment terms.")
 
         if errors:
             for e in errors: st.error(e)
@@ -2005,10 +2007,11 @@ def render_step_8():
                 "handle_criticism": handle_criticism, "teamwork": teamwork,
                 "follow_process": follow_process, "first_session_win": first_session_win,
                 "session_notes_ok": session_notes_ok, "english_level": english_level,
-                "respond_24h": respond_24h, "ideal_rate": ideal_rate,
-                "hours_per_week": hours_per_week,
-                "confirm_communication": confirm_communication, "confirm_payment": confirm_payment,
-                "confirm_taxes": confirm_taxes, "confirm_parttime": confirm_parttime,
+                "ideal_rate": ideal_rate,
+                "confirm_communication": confirm_communication == "Yes",
+                "confirm_payment": confirm_payment == "Yes",
+                "confirm_taxes": confirm_taxes == "Yes",
+                "confirm_parttime": confirm_parttime == "Yes",
             })
             go_to(9); st.rerun()
 
@@ -2220,7 +2223,7 @@ def run_submission():
                 "certificates": state["certifications"][:200],
                 "english_level": state["english_level"],
                 "rate_per_hour": state["ideal_rate"],
-                "availability_hours_per_week": str(state["hours_per_week"]),
+                "availability_hours_per_week": "N/A",
                 "payment_preference": state["payment_pref"],
                 "teaching_methodology_summary": "Analysis unavailable.",
                 "technology_setup": "Unknown",
