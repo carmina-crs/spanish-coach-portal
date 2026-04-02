@@ -1207,14 +1207,14 @@ def render_step_1():
     </div>
     """, unsafe_allow_html=True)
 
-    cv_file    = st.file_uploader("CV / Resume (in English) * — PDF or DOCX",
+    cv_file    = st.file_uploader("CV / Resume (in English) — PDF or DOCX",
                                   type=["pdf", "docx", "doc"],
                                   key="cv_uploader")
-    cert_files = st.file_uploader("Teaching Certificates * — PDF (at least one required)",
+    cert_files = st.file_uploader("Teaching Certificates — PDF (at least one required)",
                                   type=["pdf"],
                                   accept_multiple_files=True,
                                   key="cert_uploader")
-    photo_file = st.file_uploader("Professional Photo * — PNG or JPG",
+    photo_file = st.file_uploader("Professional Photo — PNG or JPG",
                                   type=["png", "jpg", "jpeg"],
                                   key="photo_uploader",
                                   help="Upload a clear, professional-looking photo of yourself.")
@@ -1341,7 +1341,7 @@ def render_step_2():
     """, unsafe_allow_html=True)
 
     video_mode = st.radio(
-        "How would you like to share your video(s)? *",
+        "How would you like to share your video(s)?",
         options=[
             "Upload two separate videos (Spanish + English)",
             "Upload one combined video (Spanish & English in one)",
@@ -1370,10 +1370,10 @@ def render_step_2():
     video_link = ""
 
     if video_mode == "Upload two separate videos (Spanish + English)":
-        video_spanish = st.file_uploader("Video in Spanish * (mp4, mov, avi, mkv, webm)",
+        video_spanish = st.file_uploader("Video in Spanish (mp4, mov, avi, mkv, webm)",
                                          type=["mp4", "mov", "avi", "mkv", "webm"],
                                          key="video_es_uploader")
-        video_english = st.file_uploader("Video in English * (mp4, mov, avi, mkv, webm)",
+        video_english = st.file_uploader("Video in English (mp4, mov, avi, mkv, webm)",
                                          type=["mp4", "mov", "avi", "mkv", "webm"],
                                          key="video_en_uploader")
         st.markdown('<p class="file-note">Videos are large files. Upload may take a few minutes.</p>',
@@ -1391,7 +1391,7 @@ def render_step_2():
                 st.warning("\u274c English video missing")
 
     elif video_mode == "Upload one combined video (Spanish & English in one)":
-        video_combined = st.file_uploader("Combined video (Spanish & English) * (mp4, mov, avi, mkv, webm)",
+        video_combined = st.file_uploader("Combined video (Spanish & English) (mp4, mov, avi, mkv, webm)",
                                           type=["mp4", "mov", "avi", "mkv", "webm"],
                                           key="video_combined_uploader")
         st.markdown('<p class="file-note">Videos are large files. Upload may take a few minutes.</p>',
@@ -1403,7 +1403,7 @@ def render_step_2():
 
     elif video_mode == "Share a video link":
         video_link = st.text_input(
-            "Paste your video link * (YouTube, Google Drive, Loom, etc.)",
+            "Paste your video link (YouTube, Google Drive, Loom, etc.)",
             value=st.session_state["video_link"],
             key="video_link_input",
         )
@@ -1421,7 +1421,7 @@ def render_step_2():
 
         st.markdown("---")
         st.markdown("**Upload your recorded video here:**")
-        video_combined = st.file_uploader("Upload recorded video * (webm, mp4, mov)",
+        video_combined = st.file_uploader("Upload recorded video (webm, mp4, mov)",
                                           type=["webm", "mp4", "mov", "avi", "mkv"],
                                           key="video_recorded_uploader")
         if video_combined or st.session_state["video_combined"]:
@@ -1495,30 +1495,30 @@ def render_step_3():
 
         col1, col2 = st.columns(2)
         with col1:
-            first_name = st.text_input("First Name *", value=st.session_state["first_name"])
+            first_name = st.text_input("First Name", value=st.session_state["first_name"])
         with col2:
-            last_name = st.text_input("Last Name *", value=st.session_state["last_name"])
+            last_name = st.text_input("Last Name", value=st.session_state["last_name"])
 
         col3, col4 = st.columns(2)
         with col3:
-            email = st.text_input("Email Address *", value=st.session_state["email"])
+            email = st.text_input("Email Address", value=st.session_state["email"])
         with col4:
-            age = st.text_input("Age *", value=str(st.session_state["age"]) if st.session_state["age"] else "",
+            age = st.text_input("Age", value=str(st.session_state["age"]) if st.session_state["age"] else "",
                                 placeholder="e.g. 28")
 
         col5, col6 = st.columns(2)
         with col5:
-            mobile = st.text_input("Mobile Number *", value=st.session_state["mobile"])
+            mobile = st.text_input("Mobile Number", value=st.session_state["mobile"])
         with col6:
-            whatsapp = st.text_input("WhatsApp Number *", value=st.session_state["whatsapp"],
+            whatsapp = st.text_input("WhatsApp Number", value=st.session_state["whatsapp"],
                                      help="We'll use this if we can't reach you by email")
 
         col7, col8 = st.columns(2)
         with col7:
-            country_origin = st.text_input("Country of Origin *",
+            country_origin = st.text_input("Country of Origin",
                                            value=st.session_state["country_origin"])
         with col8:
-            current_location = st.text_input("Current City & Country *",
+            current_location = st.text_input("Current City & Country",
                                              value=st.session_state["current_location"])
 
         # Timezone dropdown
@@ -1526,27 +1526,27 @@ def render_step_3():
         tz_idx = 0
         if tz_current in TIMEZONE_OPTIONS:
             tz_idx = TIMEZONE_OPTIONS.index(tz_current)
-        timezone = st.selectbox("Time zone in your current location *", TIMEZONE_OPTIONS, index=tz_idx)
+        timezone = st.selectbox("Time zone in your current location", TIMEZONE_OPTIONS, index=tz_idx)
 
-        address = st.text_area("Full Address * (House No, Street, City, State/Province, Postal Code, Country)",
+        address = st.text_area("Full Address (House No, Street, City, State/Province, Postal Code, Country)",
                                value=st.session_state["address"],
                                placeholder="House No, Street, City, State/Province, Postal Code, Country",
                                height=80)
 
         profile_link = st.text_input("Upwork / LinkedIn Profile Link",
                                      value=st.session_state["profile_link"])
-        teaching_schedule = st.text_area("Preferred Teaching Schedule * (Specify days, time and time zone)",
+        teaching_schedule = st.text_area("Preferred Teaching Schedule (Specify days, time and time zone)",
                                          value=st.session_state["teaching_schedule"],
                                          height=80)
 
-        payment_pref = st.selectbox("Payment Preference *",
+        payment_pref = st.selectbox("Payment Preference",
                                     ["Upwork", "Wise", "Bank Transfer"],
                                     index=["Upwork", "Wise", "Bank Transfer"]
                                     .index(st.session_state["payment_pref"]
                                            if st.session_state["payment_pref"] in ["Upwork", "Wise", "Bank Transfer"]
                                            else "Upwork"))
 
-        tax_info = st.text_area("Tax Information * (Tax ID/Number, Registered Address, Phone Number)",
+        tax_info = st.text_area("Tax Information (Tax ID/Number, Registered Address, Phone Number)",
                                 value=st.session_state["tax_info"],
                                 placeholder="Example: Tax ID: RFC XXXX000000XX0, Address: 123 Main Street, Mexico City, Phone: +52 55 1234 5678",
                                 height=80)
@@ -1569,6 +1569,7 @@ def render_step_3():
         if age.strip() and not age.strip().isdigit(): errors.append("Age must be a number.")
         if not age.strip(): errors.append("Age is required.")
         if not tax_info.strip():         errors.append("Tax Information is required.")
+        if not teaching_schedule.strip(): errors.append("Preferred Teaching Schedule is required.")
 
         if errors:
             for e in errors:
@@ -1599,26 +1600,26 @@ def render_step_4():
     show_step_pill(4)
     st.subheader("Step 4 — Professional Background")
 
-    native_spanish = st.radio("1. Are you a native Spanish speaker? *",
+    native_spanish = st.radio("1. Are you a native Spanish speaker?",
                               ["Yes", "No"],
                               index=["Yes","No"].index(st.session_state["native_spanish"]),
                               horizontal=True)
 
     spanish_type = st.text_area(
-        "2. What type of Spanish do you specialize in? * (e.g. Castilian, Latin American — please specify all the varieties you can teach, such as Mexican, Colombian, Argentinian, etc.)",
+        "2. What type of Spanish do you specialize in? (e.g. Castilian, Latin American — please specify all the varieties you can teach, such as Mexican, Colombian, Argentinian, etc.)",
         value=st.session_state["spanish_type"],
         height=80)
 
-    years_teaching = st.number_input("3. How many years have you been teaching Spanish? *",
+    years_teaching = st.number_input("3. How many years have you been teaching Spanish?",
                                      min_value=0, max_value=60,
                                      value=st.session_state["years_teaching"])
 
     certifications = st.text_area(
-        "4. What degrees or certifications do you hold in Spanish or language teaching? * If none, list any other certifications you have.",
+        "4. What degrees or certifications do you hold in Spanish or language teaching? If none, list any other certifications you have.",
         value=st.session_state["certifications"],
         height=100)
 
-    students_taught = st.text_area("5. How many students have you taught? Ages and proficiency levels? *",
+    students_taught = st.text_area("5. How many students have you taught? Ages and proficiency levels?",
                                    value=st.session_state["students_taught"],
                                    height=80)
 
@@ -1626,14 +1627,14 @@ def render_step_4():
     current_all_levels = st.session_state["all_levels"]
     if current_all_levels not in all_levels_options:
         current_all_levels = "Yes"
-    all_levels = st.radio("6. Can you teach all levels from A1 to C2? *",
+    all_levels = st.radio("6. Can you teach all levels from A1 to C2?",
                           all_levels_options,
                           index=all_levels_options.index(current_all_levels),
                           horizontal=True)
 
     levels_detail = ""
     if all_levels == "Some levels only":
-        levels_detail = st.text_input("Please specify which levels you can teach: *",
+        levels_detail = st.text_input("Please specify which levels you can teach:",
                                       value=st.session_state["levels_detail"])
 
     st.markdown("---")
@@ -1648,7 +1649,7 @@ def render_step_4():
     st.markdown("---")
 
     dele_exp = st.radio(
-        "8. Do you have experience preparing students for official language proficiency exams such as the DELE? *",
+        "8. Do you have experience preparing students for official language proficiency exams such as the DELE?",
         ["Yes", "No"],
         index=["Yes","No"].index(st.session_state["dele_exp"]),
         horizontal=True)
@@ -1659,7 +1660,7 @@ def render_step_4():
         height=80)
 
     current_platforms = st.text_area(
-        "10. Where do you currently teach Spanish online? * Please share your profile link/s.",
+        "10. Where do you currently teach Spanish online? Please share your profile link/s.",
         value=st.session_state["current_platforms"],
         height=80)
 
@@ -1720,7 +1721,7 @@ def render_dynamic_step(step_num: int):
         values = {}
         for q in questions:
             key = q["key"]
-            label = q["label"] + (" *" if q.get("required") else "")
+            label = q["label"]
             qtype = q.get("type", "textarea")
             help_text = q.get("help", None)
 
@@ -1763,8 +1764,8 @@ def render_dynamic_step(step_num: int):
                 multiselect_ok = False
                 st.error(f"Please select at least one option for: {q['label']}")
 
-        if filled / total_text < 0.70:
-            st.error("Please complete at least 70% of the required fields in this section.")
+        if filled < total_text:
+            st.error("Please answer all questions in this section before proceeding.")
         elif not multiselect_ok:
             pass
         else:
@@ -1785,19 +1786,19 @@ def _render_step_5_hardcoded():
     st.subheader("Step 5 \u2014 Teaching Philosophy, Engagement & Motivation")
 
     with st.form("form_step5"):
-        assess_proficiency = st.text_area("1. How do you assess a student's proficiency in Spanish before starting lessons? *",
+        assess_proficiency = st.text_area("1. How do you assess a student's proficiency in Spanish before starting lessons?",
                                           value=st.session_state["assess_proficiency"], height=100)
-        tailor_lessons = st.text_area("2. How do you tailor your lessons to suit different learning styles and proficiency levels? *",
+        tailor_lessons = st.text_area("2. How do you tailor your lessons to suit different learning styles and proficiency levels?",
                                       value=st.session_state["tailor_lessons"], height=100)
-        successful_lesson = st.text_area("3. Can you give an example of a particularly successful lesson or course you've delivered? What made it effective? *",
+        successful_lesson = st.text_area("3. Can you give an example of a particularly successful lesson or course you've delivered? What made it effective?",
                                          value=st.session_state["successful_lesson"], height=100)
-        engaging_online = st.text_area("4. How do you keep online lessons engaging and interactive for students? *",
+        engaging_online = st.text_area("4. How do you keep online lessons engaging and interactive for students?",
                                        value=st.session_state["engaging_online"], height=100)
-        student_duration = st.text_area("5. How long do students typically stay with you, and what do you think contributes to student retention? *",
+        student_duration = st.text_area("5. How long do students typically stay with you, and what do you think contributes to student retention?",
                                          value=st.session_state["student_duration"], height=100)
-        motivate_struggling = st.text_area("6. What strategies do you use to motivate students who are struggling or losing interest? *",
+        motivate_struggling = st.text_area("6. What strategies do you use to motivate students who are struggling or losing interest?",
                                            value=st.session_state["motivate_struggling"], height=100)
-        enjoy_process = st.text_area("7. How do you ensure that students are not only learning effectively but also enjoying the process? *",
+        enjoy_process = st.text_area("7. How do you ensure that students are not only learning effectively but also enjoying the process?",
                                      value=st.session_state["enjoy_process"], height=100)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1806,8 +1807,8 @@ def _render_step_5_hardcoded():
         fields = [assess_proficiency, tailor_lessons, successful_lesson,
                   engaging_online, student_duration, motivate_struggling, enjoy_process]
         filled = sum(1 for f in fields if str(f).strip())
-        if filled / len(fields) < 0.70:
-            st.error("Please complete at least 70% of the fields in this section.")
+        if filled < len(fields):
+            st.error("Please answer all questions in this section before proceeding.")
         else:
             st.session_state.update({
                 "assess_proficiency": assess_proficiency, "tailor_lessons": tailor_lessons,
@@ -1827,25 +1828,25 @@ def _render_step_6_hardcoded():
     st.subheader("Step 6 \u2014 Technology, Assessment & Adapting to Challenges")
 
     with st.form("form_step6"):
-        multimedia = st.text_area("1. Do you incorporate multimedia resources or cultural content into your lessons? If yes, can you give examples? *",
+        multimedia = st.text_area("1. Do you incorporate multimedia resources or cultural content into your lessons? If yes, can you give examples?",
                                   value=st.session_state.get("multimedia_examples", "") or (st.session_state["multimedia"] if st.session_state["multimedia"] not in ["Yes","No","Sometimes"] else ""),
                                   height=100)
 
-        tech_setup = st.text_area("2. Do you have a quality microphone, webcam, stable internet connection, and a quiet, well-lit workspace for conducting online classes? *",
+        tech_setup = st.text_area("2. Do you have a quality microphone, webcam, stable internet connection, and a quiet, well-lit workspace for conducting online classes?",
                                   value=st.session_state.get("tech_setup", "") if st.session_state.get("tech_setup","") not in ["Yes","No","Some but not all"] else "",
                                   height=80)
 
-        software = st.text_area("3. Which software or platforms do you use for conducting online classes? (e.g., Zoom, Skype, Google Meet, or others) *",
+        software = st.text_area("3. Which software or platforms do you use for conducting online classes? (e.g., Zoom, Skype, Google Meet, or others)",
                                 value=st.session_state.get("software_other", "") or (", ".join(st.session_state.get("software",[])) if isinstance(st.session_state.get("software"), list) else ""),
                                 height=80)
 
-        assess_progress = st.text_area("4. How do you assess your students' progress, and how often do you provide updates or evaluations? *",
+        assess_progress = st.text_area("4. How do you assess your students' progress, and how often do you provide updates or evaluations?",
                                        value=st.session_state["assess_progress"], height=100)
-        feedback_style  = st.text_area("5. How do you provide constructive and motivating feedback to your students? *",
+        feedback_style  = st.text_area("5. How do you provide constructive and motivating feedback to your students?",
                                        value=st.session_state["feedback_style"], height=100)
-        adapt_teaching  = st.text_area("6. Can you share an example of a time when you had to adapt your teaching approach to meet the needs of a particularly challenging student? *",
+        adapt_teaching  = st.text_area("6. Can you share an example of a time when you had to adapt your teaching approach to meet the needs of a particularly challenging student?",
                                        value=st.session_state["adapt_teaching"], height=100)
-        cultural_lesson = st.text_area("7. Can you give an example of a cultural lesson or activity that you believe is essential for students learning Spanish? *",
+        cultural_lesson = st.text_area("7. Can you give an example of a cultural lesson or activity that you believe is essential for students learning Spanish?",
                                        value=st.session_state["cultural_lesson"], height=100)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1853,8 +1854,8 @@ def _render_step_6_hardcoded():
     if submitted:
         text_fields = [multimedia, tech_setup, software, assess_progress, feedback_style, adapt_teaching, cultural_lesson]
         filled = sum(1 for f in text_fields if str(f).strip())
-        if filled / len(text_fields) < 0.70:
-            st.error("Please complete at least 70% of the fields in this section.")
+        if filled < len(text_fields):
+            st.error("Please answer all questions in this section before proceeding.")
         else:
             st.session_state.update({
                 "multimedia_examples": multimedia,
@@ -1876,13 +1877,13 @@ def _render_step_7_hardcoded():
     st.subheader("Step 7 \u2014 Professional Development & Scenarios")
 
     with st.form("form_step7"):
-        improve_skills   = st.text_area("1. What steps do you take to continuously improve your teaching skills and stay updated with new methodologies? *",
+        improve_skills   = st.text_area("1. What steps do you take to continuously improve your teaching skills and stay updated with new methodologies?",
                                         value=st.session_state["improve_skills"], height=100)
-        excited_areas    = st.text_area("2. Are there any particular areas of Spanish language teaching that you are currently working on or excited to develop further? *",
+        excited_areas    = st.text_area("2. Are there any particular areas of Spanish language teaching that you are currently working on or excited to develop further?",
                                         value=st.session_state["excited_areas"], height=100)
-        grammar_error    = st.text_area("3. A student consistently makes the same grammatical error despite corrections. How would you address this issue while keeping the student motivated? *",
+        grammar_error    = st.text_area("3. A student consistently makes the same grammatical error despite corrections. How would you address this issue while keeping the student motivated?",
                                         value=st.session_state["grammar_error"], height=100)
-        lesson_plan_levels = st.text_area("4. How would you structure a lesson plan for a complete beginner compared to an advanced student preparing for a certification exam? *",
+        lesson_plan_levels = st.text_area("4. How would you structure a lesson plan for a complete beginner compared to an advanced student preparing for a certification exam?",
                                           value=st.session_state["lesson_plan_levels"], height=120)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1890,8 +1891,8 @@ def _render_step_7_hardcoded():
     if submitted:
         fields = [improve_skills, excited_areas, grammar_error, lesson_plan_levels]
         filled = sum(1 for f in fields if f.strip())
-        if filled / len(fields) < 0.70:
-            st.error("Please complete at least 70% of the fields in this section.")
+        if filled < len(fields):
+            st.error("Please answer all questions in this section before proceeding.")
         else:
             st.session_state.update({
                 "improve_skills": improve_skills, "excited_areas": excited_areas,
@@ -1924,38 +1925,38 @@ def render_step_8():
     st.subheader("Step 8 \u2014 Team, Communication & Rate")
 
     with st.form("form_step8"):
-        handle_criticism = st.text_area("1. How do you respond to constructive criticism from a supervisor? *",
+        handle_criticism = st.text_area("1. How do you respond to constructive criticism from a supervisor?",
                                         value=st.session_state["handle_criticism"], height=100)
-        teamwork         = st.text_area("2. How comfortable are you working closely with a team? *",
+        teamwork         = st.text_area("2. How comfortable are you working closely with a team?",
                                         value=st.session_state["teamwork"], height=100)
 
-        follow_process   = st.radio("3. Are you comfortable following a set process rather than always doing things your own way? *",
+        follow_process   = st.radio("3. Are you comfortable following a set process rather than always doing things your own way?",
                                     ["Yes", "No", "Somewhat"],
                                     index=["Yes","No","Somewhat"].index(st.session_state["follow_process"]),
                                     horizontal=True)
 
-        first_session_win = st.text_area('4. How would you structure the first session to give the student a "quick win"? *',
+        first_session_win = st.text_area('4. How would you structure the first session to give the student a "quick win"?',
                                          value=st.session_state["first_session_win"], height=100)
 
-        session_notes_ok = st.radio("5. Are you comfortable with session notes and tracker updates immediately after each session? *",
+        session_notes_ok = st.radio("5. Are you comfortable with session notes and tracker updates immediately after each session?",
                                     ["Yes", "No"],
                                     index=["Yes","No"].index(st.session_state["session_notes_ok"]),
                                     horizontal=True)
 
         english_opts = ["Native", "Advanced/C1-C2", "Upper-Intermediate/B2", "Intermediate/B1", "Basic/A1-A2"]
-        english_level = st.selectbox("6. What is your current English level? *",
+        english_level = st.selectbox("6. What is your current English level?",
                                      english_opts,
                                      index=english_opts.index(st.session_state["english_level"]))
 
-        respond_24h = st.radio("7. Can you commit to responding within 24h on weekdays and 48h on weekends? *",
+        respond_24h = st.radio("7. Can you commit to responding within 24h on weekdays and 48h on weekends?",
                                ["Yes", "No"],
                                index=["Yes","No"].index(st.session_state["respond_24h"]),
                                horizontal=True)
 
-        ideal_rate     = st.text_input("8. What is your ideal hourly rate for this role? *",
+        ideal_rate     = st.text_input("8. What is your ideal hourly rate for this role?",
                                        value=st.session_state["ideal_rate"],
                                        placeholder="e.g. $15/hr")
-        hours_per_week = st.number_input("9. How many hours per week can you dedicate? *",
+        hours_per_week = st.number_input("9. How many hours per week can you dedicate?",
                                          min_value=1, max_value=80,
                                          value=st.session_state["hours_per_week"])
 
@@ -1984,8 +1985,8 @@ def render_step_8():
         errors = []
         text_fields = [handle_criticism, teamwork, first_session_win]
         filled = sum(1 for f in text_fields if f.strip())
-        if filled / len(text_fields) < 0.70:
-            errors.append("Please complete the text fields in this section.")
+        if filled < len(text_fields):
+            errors.append("Please answer all questions in this section before proceeding.")
         if not ideal_rate.strip():
             errors.append("Ideal rate is required.")
         if not confirm_communication:
@@ -2054,7 +2055,7 @@ def render_step_9():
         answers = {}
         for i, q in enumerate(questions, start=1):
             answers[f"quiz_{i}"] = st.text_area(
-                q + " *",
+                q,
                 value=st.session_state.get(f"quiz_{i}", ""),
                 height=100,
                 key=f"quiz_input_{i}",
