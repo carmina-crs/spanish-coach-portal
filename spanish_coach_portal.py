@@ -555,7 +555,7 @@ DEFAULTS = {
     "enjoy_process": "",
     # Step 6 – Technology (dynamic)
     "multimedia": "", "multimedia_examples": "", "tech_setup": "",
-    "software": [], "software_other": "", "assess_progress": "",
+    "software": "", "software_other": "", "assess_progress": "",
     "feedback_style": "", "adapt_teaching": "", "cultural_lesson": "",
     # Step 7 – Development (dynamic)
     "improve_skills": "", "excited_areas": "", "grammar_error": "",
@@ -2188,10 +2188,10 @@ def render_step_9():
 
     st.markdown("""
     <div class="section-card">
-    <strong>Important:</strong> Before answering the questions below, you <strong>must</strong> read our
-    <em>Program and Expectations from Coach</em> document.<br><br>
-    Click the button below to open and review the document, then answer the questions to demonstrate your understanding.
-    Be as detailed as possible.
+    Please familiarize yourself with our program by carefully reading the
+    <strong>"Our Program and Expectations for Coaches"</strong> document.<br><br>
+    Click the button below to open and review the document. After reading it,
+    answer the questions to demonstrate your understanding.
     </div>
     """, unsafe_allow_html=True)
 
