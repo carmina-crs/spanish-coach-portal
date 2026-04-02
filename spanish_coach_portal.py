@@ -554,7 +554,7 @@ DEFAULTS = {
     "engaging_online": "", "student_duration": "", "motivate_struggling": "",
     "enjoy_process": "",
     # Step 6 – Technology (dynamic)
-    "multimedia": "Yes", "multimedia_examples": "", "tech_setup": "Yes",
+    "multimedia": "", "multimedia_examples": "", "tech_setup": "",
     "software": [], "software_other": "", "assess_progress": "",
     "feedback_style": "", "adapt_teaching": "", "cultural_lesson": "",
     # Step 7 – Development (dynamic)
@@ -1972,15 +1972,15 @@ def _render_step_6_hardcoded():
 
     with st.form("form_step6"):
         multimedia = st.text_area("1. Do you incorporate multimedia resources or cultural content into your lessons? If yes, can you give examples?",
-                                  value=st.session_state.get("multimedia_examples", "") or (st.session_state["multimedia"] if st.session_state["multimedia"] not in ["Yes","No","Sometimes"] else ""),
+                                  value=st.session_state.get("multimedia_examples", "") or st.session_state.get("multimedia", ""),
                                   height=100)
 
         tech_setup = st.text_area("2. Do you have a quality microphone, webcam, stable internet connection, and a quiet, well-lit workspace for conducting online classes?",
-                                  value=st.session_state.get("tech_setup", "") if st.session_state.get("tech_setup","") not in ["Yes","No","Some but not all"] else "",
+                                  value=st.session_state.get("tech_setup", ""),
                                   height=80)
 
         software = st.text_area("3. Which software or platforms do you use for conducting online classes? (e.g., Zoom, Skype, Google Meet, or others)",
-                                value=st.session_state.get("software_other", "") or (", ".join(st.session_state.get("software",[])) if isinstance(st.session_state.get("software"), list) else ""),
+                                value=st.session_state.get("software_other", ""),
                                 height=80)
 
         assess_progress = st.text_area("4. How do you assess your students' progress, and how often do you provide updates or evaluations?",
@@ -2188,14 +2188,21 @@ def render_step_9():
 
     st.markdown("""
     <div class="section-card">
-    Before applying, you should have read our <em>Program and Expectations from Coach</em> document.
-    Please answer the following questions to demonstrate your understanding. Be as detailed as possible.
+    <strong>Important:</strong> Before answering the questions below, you <strong>must</strong> read our
+    <em>Program and Expectations from Coach</em> document.<br><br>
+    Click the button below to open and review the document, then answer the questions to demonstrate your understanding.
+    Be as detailed as possible.
     </div>
     """, unsafe_allow_html=True)
 
-    st.link_button("Open Program Document (read before answering)",
-                   "https://docs.google.com/document/d/1EUNTrNC03Px6TfjNM4m3FZWylldbk_SU1Ci8Vm7qc9w/edit?usp=sharing",
-                   use_container_width=True)
+    st.markdown("""
+    <a href="https://docs.google.com/document/d/1EUNTrNC03Px6TfjNM4m3FZWylldbk_SU1Ci8Vm7qc9w/edit?usp=sharing"
+       target="_blank"
+       style="display:block;text-align:center;background:#27ae60;color:white;padding:14px 24px;
+              border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05rem;margin:0.5rem 0 1.5rem;">
+       \U0001f4c4 Open Program Document (read before answering)
+    </a>
+    """, unsafe_allow_html=True)
 
     questions = [
         "1. What are the key commitments and promises we make to students enrolled in the program?",
