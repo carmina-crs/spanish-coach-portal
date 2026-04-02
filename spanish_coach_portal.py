@@ -70,6 +70,43 @@ div[style*="position:fixed"][style*="bottom"] { display: none !important; }
     --brand-dark: #1a1a2e;
 }
 
+/* Back button — Red */
+button[kind="secondary"] {
+    background-color: #c0392b !important;
+    color: white !important;
+    border: none !important;
+}
+button[kind="secondary"]:hover {
+    background-color: #a93226 !important;
+    color: white !important;
+}
+
+/* Continue / Primary button — Gold/Yellow */
+button[kind="primary"],
+button[kind="primaryFormSubmit"] {
+    background-color: #f39c12 !important;
+    color: white !important;
+    border: none !important;
+}
+button[kind="primary"]:hover,
+button[kind="primaryFormSubmit"]:hover {
+    background-color: #d68910 !important;
+    color: white !important;
+}
+
+/* Save My Progress (download button) — Blue */
+[data-testid="stDownloadButton"] button {
+    background-color: #2980b9 !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+    background-color: #2471a3 !important;
+    color: white !important;
+}
+
 /* Header */
 .portal-header {
     background: linear-gradient(135deg, #c0392b 0%, #922b21 100%);
