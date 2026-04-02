@@ -219,41 +219,18 @@ secrets_ok = all([
 # ---------------------------------------------------------------------------
 # Timezone list
 # ---------------------------------------------------------------------------
-TIMEZONE_OPTIONS = [
-    "",
-    "UTC-12:00 (Baker Island)",
-    "UTC-11:00 (American Samoa)",
-    "UTC-10:00 (Hawaii)",
-    "UTC-09:00 (Alaska)",
-    "UTC-08:00 (Pacific Time — US/Canada)",
-    "UTC-07:00 (Mountain Time — US/Canada)",
-    "UTC-06:00 (Central Time — US/Canada, Mexico City)",
-    "UTC-05:00 (Eastern Time — US/Canada, Bogota, Lima, Quito)",
-    "UTC-04:00 (Atlantic Time, Santiago, Caracas)",
-    "UTC-03:00 (Buenos Aires, Sao Paulo, Montevideo)",
-    "UTC-02:00 (Mid-Atlantic)",
-    "UTC-01:00 (Azores, Cape Verde)",
-    "UTC+00:00 (London, Lisbon, Accra, GMT)",
-    "UTC+01:00 (Paris, Berlin, Madrid, Rome, Lagos, WAT)",
-    "UTC+02:00 (Cairo, Johannesburg, Helsinki, Bucharest, CAT)",
-    "UTC+03:00 (Moscow, Nairobi, Istanbul, Riyadh, EAT)",
-    "UTC+03:30 (Tehran)",
-    "UTC+04:00 (Dubai, Baku, Tbilisi)",
-    "UTC+04:30 (Kabul)",
-    "UTC+05:00 (Karachi, Tashkent)",
-    "UTC+05:30 (Mumbai, Colombo, IST)",
-    "UTC+05:45 (Kathmandu)",
-    "UTC+06:00 (Dhaka, Almaty)",
-    "UTC+06:30 (Yangon)",
-    "UTC+07:00 (Bangkok, Jakarta, Hanoi, ICT)",
-    "UTC+08:00 (Singapore, Beijing, Perth, Hong Kong)",
-    "UTC+09:00 (Tokyo, Seoul, JST/KST)",
-    "UTC+09:30 (Adelaide, Darwin)",
-    "UTC+10:00 (Sydney, Melbourne, Guam, AEST)",
-    "UTC+11:00 (Solomon Islands, Noumea)",
-    "UTC+12:00 (Auckland, Fiji, NZST)",
-    "UTC+13:00 (Tonga, Samoa)",
-]
+# Build complete timezone list from Python's zoneinfo database
+try:
+    from zoneinfo import available_timezones
+    _all_tz = sorted(available_timezones())
+except ImportError:
+    try:
+        import pytz
+        _all_tz = sorted(pytz.common_timezones)
+    except ImportError:
+        _all_tz = []
+
+TIMEZONE_OPTIONS = ["(Select your timezone)"] + _all_tz
 
 # ---------------------------------------------------------------------------
 # Session-state initialiser
@@ -267,7 +244,7 @@ DEFAULTS = {
     "video_spanish": None, "video_english": None,
     "video_combined": None, "video_link": "",
     # Step 3 – Personal
-    "first_name": "", "last_name": "", "email": "", "age": 25,
+    "first_name": "", "last_name": "", "email": "", "age": "",
     "mobile": "", "whatsapp": "",
     "country_origin": "", "current_location": "", "address": "",
     "timezone": "", "profile_link": "", "teaching_schedule": "",
@@ -275,8 +252,8 @@ DEFAULTS = {
     # Step 4 – Background
     "native_spanish": "Yes", "spanish_type": "", "years_teaching": 0,
     "certifications": "", "students_taught": "", "all_levels": "Yes",
-    "levels_detail": "", "testimonials": "", "dele_exp": "No",
-    "dele_detail": "", "current_platforms": "",
+    "levels_detail": "", "testimonial_files": [], "testimonial_link": "",
+    "dele_exp": "No", "dele_detail": "", "current_platforms": "",
     # Step 5 – Philosophy (dynamic)
     "assess_proficiency": "", "tailor_lessons": "", "successful_lesson": "",
     "engaging_online": "", "student_duration": "", "motivate_struggling": "",
@@ -292,7 +269,8 @@ DEFAULTS = {
     "handle_criticism": "", "teamwork": "", "follow_process": "Yes",
     "first_session_win": "", "session_notes_ok": "Yes", "english_level": "Advanced/C1-C2",
     "respond_24h": "Yes", "ideal_rate": "", "hours_per_week": 10,
-    "confirm_payment": False, "confirm_taxes": False, "confirm_parttime": False,
+    "confirm_communication": False, "confirm_payment": False,
+    "confirm_taxes": False, "confirm_parttime": False,
     # Step 9 – Quiz
     "quiz_1": "", "quiz_2": "", "quiz_3": "", "quiz_4": "",
     "quiz_5": "", "quiz_6": "", "quiz_7": "", "quiz_8": "",
@@ -376,8 +354,8 @@ def nav_buttons(back_step: int, back_key: str, next_key: str = "", next_label: s
 
 def get_saveable_state() -> dict:
     exclude = {"cv_file", "cert_files", "photo_file", "video_spanish", "video_english",
-               "video_combined", "submitted", "_success_name", "_success_email",
-               "_email_sent", "_email_error"}
+               "video_combined", "testimonial_files", "submitted", "_success_name",
+               "_success_email", "_email_sent", "_email_error"}
     data = {}
     for k, v in st.session_state.items():
         if k not in exclude and not k.startswith("_") and not k.startswith("FormSubmitter"):
@@ -468,10 +446,19 @@ def save_submission_files(state: dict) -> Path:
             vc_ext  = Path(state["video_combined"].name).suffix
             (folder / f"video_combined{vc_ext}").write_bytes(state["video_combined"].getbuffer())
 
+    # Testimonial screenshots
+    for i, tf in enumerate(state.get("testimonial_files", []), start=1):
+        try:
+            tf_ext = Path(tf.name).suffix
+            (folder / f"testimonial_{i}{tf_ext}").write_bytes(tf.getbuffer())
+        except Exception:
+            pass
+
     # JSON data dump
     json_data = {k: v for k, v in state.items()
                  if k not in ("cv_file", "cert_files", "photo_file", "video_spanish",
-                              "video_english", "video_combined", "step", "submitted")}
+                              "video_english", "video_combined", "testimonial_files",
+                              "step", "submitted")}
     (folder / "submission_data.json").write_text(
         json.dumps(json_data, indent=2, default=str), encoding="utf-8"
     )
@@ -560,7 +547,7 @@ Certifications: {state['certifications']}
 Students Taught: {state['students_taught']}
 Can Teach A1-C2: {state['all_levels']}
 Level Details: {state['levels_detail']}
-Testimonials: {state['testimonials']}
+Testimonials: {"Screenshots uploaded" if state.get('testimonial_files') else "None uploaded"} {state.get('testimonial_link', '')}
 DELE Experience: {state['dele_exp']}
 DELE Detail: {state['dele_detail']}
 Current Platforms: {state['current_platforms']}
@@ -886,9 +873,10 @@ def check_completeness(state: dict) -> list[str]:
     if not state["students_taught"].strip(): missing.append("Students Taught (Step 4)")
 
     # Step 8 checks — Team/Rate
-    if not state["confirm_payment"]:  missing.append("Confirmation: Payment-based role (Step 8)")
+    if not state.get("confirm_communication"): missing.append("Confirmation: Communication commitment (Step 8)")
+    if not state["confirm_payment"]:  missing.append("Confirmation: Payment basis (Step 8)")
     if not state["confirm_taxes"]:    missing.append("Confirmation: Tax responsibility (Step 8)")
-    if not state["confirm_parttime"]: missing.append("Confirmation: Part-time role (Step 8)")
+    if not state["confirm_parttime"]: missing.append("Confirmation: Part-time role & assignments (Step 8)")
 
     # Step 9 quiz — all 12 required
     for i in range(1, 13):
@@ -1264,8 +1252,8 @@ def render_step_3():
         with col3:
             email = st.text_input("Email Address *", value=st.session_state["email"])
         with col4:
-            age = st.slider("Age *", min_value=18, max_value=80,
-                            value=st.session_state["age"])
+            age = st.text_input("Age *", value=str(st.session_state["age"]) if st.session_state["age"] else "",
+                                placeholder="e.g. 28")
 
         col5, col6 = st.columns(2)
         with col5:
@@ -1290,10 +1278,9 @@ def render_step_3():
         timezone = st.selectbox("Time Zone *", TIMEZONE_OPTIONS, index=tz_idx,
                                 help="Select the timezone where you are currently located")
 
-        address = st.text_area("Full Address *",
+        address = st.text_area("Full Address * (House No, Street, City, State/Province, Postal Code, Country)",
                                value=st.session_state["address"],
-                               placeholder="Example: 123 Main Street, Apt 4B, Mexico City, CDMX, 06600, Mexico",
-                               help="Format: House No, Street, City, State/Province, Postal Code, Country",
+                               placeholder="House No, Street, City, State/Province, Postal Code, Country",
                                height=80)
 
         profile_link = st.text_input("Upwork / LinkedIn Profile Link",
@@ -1330,7 +1317,9 @@ def render_step_3():
         if not country_origin.strip():   errors.append("Country of Origin is required.")
         if not current_location.strip(): errors.append("Current City & Country is required.")
         if not address.strip():          errors.append("Full Address is required.")
-        if not timezone or not timezone.strip(): errors.append("Time Zone is required.")
+        if not timezone or timezone == "(Select your timezone)": errors.append("Time Zone is required.")
+        if age.strip() and not age.strip().isdigit(): errors.append("Age must be a number.")
+        if not age.strip(): errors.append("Age is required.")
         if not tax_info.strip():         errors.append("Tax Information is required.")
 
         if errors:
@@ -1362,78 +1351,99 @@ def render_step_4():
     show_step_pill(4)
     st.subheader("Step 4 — Professional Background")
 
-    with st.form("form_step4"):
-        native_spanish = st.radio("1. Are you a native Spanish speaker? *",
-                                  ["Yes", "No"],
-                                  index=["Yes","No"].index(st.session_state["native_spanish"]),
-                                  horizontal=True)
-
-        spanish_type = st.text_area("2. What type of Spanish do you specialise in? *",
-                                    value=st.session_state["spanish_type"],
-                                    help="e.g. Castilian, Mexican, Colombian \u2014 describe your accent and regional variant",
-                                    height=80)
-
-        years_teaching = st.number_input("3. How many years have you been teaching Spanish? *",
-                                         min_value=0, max_value=60,
-                                         value=st.session_state["years_teaching"])
-
-        certifications = st.text_area("4. What degrees or certifications do you hold? *",
-                                      value=st.session_state["certifications"],
-                                      height=100)
-
-        students_taught = st.text_area("5. How many students have you taught? Ages and proficiency levels? *",
-                                       value=st.session_state["students_taught"],
-                                       height=80)
-
-        all_levels = st.radio("6. Can you teach all levels from A1 to C2? *",
-                              ["Yes", "No", "Some levels only"],
-                              index=["Yes","No","Some levels only"].index(st.session_state["all_levels"]),
+    native_spanish = st.radio("1. Are you a native Spanish speaker? *",
+                              ["Yes", "No"],
+                              index=["Yes","No"].index(st.session_state["native_spanish"]),
                               horizontal=True)
 
-        levels_detail = st.text_input("7. If not all levels, which levels can you teach? (optional)",
-                                      value=st.session_state["levels_detail"])
+    spanish_type = st.text_area(
+        "2. What type of Spanish do you specialize in? * (e.g. Castilian, Latin American — please specify all the varieties you can teach, such as Mexican, Colombian, Argentinian, etc.)",
+        value=st.session_state["spanish_type"],
+        height=80)
 
-        testimonials = st.text_area("8. Share examples of testimonials or feedback from past students.",
-                                    value=st.session_state["testimonials"],
-                                    height=100)
+    years_teaching = st.number_input("3. How many years have you been teaching Spanish? *",
+                                     min_value=0, max_value=60,
+                                     value=st.session_state["years_teaching"])
 
-        dele_exp = st.radio("9. Experience preparing students for DELE or similar exams? *",
-                            ["Yes", "No"],
-                            index=["Yes","No"].index(st.session_state["dele_exp"]),
-                            horizontal=True)
+    certifications = st.text_area(
+        "4. What degrees or certifications do you hold in Spanish or language teaching? * If none, list any other certifications you have.",
+        value=st.session_state["certifications"],
+        height=100)
 
-        dele_detail = st.text_area("10. If yes, describe your exam preparation experience. (optional)",
-                                   value=st.session_state["dele_detail"],
+    students_taught = st.text_area("5. How many students have you taught? Ages and proficiency levels? *",
+                                   value=st.session_state["students_taught"],
                                    height=80)
 
-        current_platforms = st.text_area("11. Where do you currently teach Spanish online? *",
-                                         value=st.session_state["current_platforms"],
-                                         height=80)
+    all_levels_options = ["Yes", "No", "Some levels only"]
+    current_all_levels = st.session_state["all_levels"]
+    if current_all_levels not in all_levels_options:
+        current_all_levels = "Yes"
+    all_levels = st.radio("6. Can you teach all levels from A1 to C2? *",
+                          all_levels_options,
+                          index=all_levels_options.index(current_all_levels),
+                          horizontal=True)
 
-        submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
+    levels_detail = ""
+    if all_levels == "Some levels only":
+        levels_detail = st.text_input("Please specify which levels you can teach: *",
+                                      value=st.session_state["levels_detail"])
 
-    if submitted:
-        errors = []
-        if not spanish_type.strip():     errors.append("Please describe your type of Spanish.")
-        if not certifications.strip():   errors.append("Certifications field is required.")
-        if not students_taught.strip():  errors.append("Students Taught field is required.")
-        if not current_platforms.strip(): errors.append("Current Platforms field is required.")
+    st.markdown("---")
+    st.markdown("**7. Share examples of testimonials or feedback from past students.**")
+    st.markdown("Upload screenshots (PNG/JPG) or share a Google Drive / Dropbox link.")
+    testimonial_files = st.file_uploader("Upload testimonial screenshots (PNG or JPG)",
+                                         type=["png", "jpg", "jpeg"],
+                                         accept_multiple_files=True,
+                                         key="testimonial_uploader")
+    testimonial_link = st.text_input("Or paste a link to your testimonials (Google Drive, Dropbox, etc.)",
+                                     value=st.session_state["testimonial_link"])
+    st.markdown("---")
 
-        if errors:
-            for e in errors: st.error(e)
-        else:
-            st.session_state.update({
-                "native_spanish": native_spanish, "spanish_type": spanish_type,
-                "years_teaching": years_teaching, "certifications": certifications,
-                "students_taught": students_taught, "all_levels": all_levels,
-                "levels_detail": levels_detail, "testimonials": testimonials,
-                "dele_exp": dele_exp, "dele_detail": dele_detail,
-                "current_platforms": current_platforms,
-            })
-            go_to(5); st.rerun()
+    dele_exp = st.radio(
+        "8. Do you have experience preparing students for official language proficiency exams such as the DELE? *",
+        ["Yes", "No"],
+        index=["Yes","No"].index(st.session_state["dele_exp"]),
+        horizontal=True)
 
-    if st.button("\u2190 Back", use_container_width=True, key="back4"):
-        go_to(3); st.rerun()
+    dele_detail = st.text_area(
+        "9. If so, please specify the exam(s), levels, and the approach or materials you typically use to support students in reaching exam readiness.",
+        value=st.session_state["dele_detail"],
+        height=80)
+
+    current_platforms = st.text_area(
+        "10. Where do you currently teach Spanish online? * Please share your profile link/s.",
+        value=st.session_state["current_platforms"],
+        height=80)
+
+    col_back, col_next = st.columns(2)
+    with col_back:
+        if st.button("\u2190 Back", use_container_width=True, key="back4"):
+            go_to(3); st.rerun()
+    with col_next:
+        if st.button("Continue \u2192", type="primary", use_container_width=True, key="next4"):
+            errors = []
+            if not spanish_type.strip():     errors.append("Please describe your type of Spanish.")
+            if not certifications.strip():   errors.append("Certifications field is required.")
+            if not students_taught.strip():  errors.append("Students Taught field is required.")
+            if not current_platforms.strip(): errors.append("Current Platforms field is required.")
+            if all_levels == "Some levels only" and not levels_detail.strip():
+                errors.append("Please specify which levels you can teach.")
+
+            if errors:
+                for e in errors: st.error(e)
+            else:
+                saved_testimonials = testimonial_files if testimonial_files else st.session_state["testimonial_files"]
+                st.session_state.update({
+                    "native_spanish": native_spanish, "spanish_type": spanish_type,
+                    "years_teaching": years_teaching, "certifications": certifications,
+                    "students_taught": students_taught, "all_levels": all_levels,
+                    "levels_detail": levels_detail,
+                    "testimonial_files": saved_testimonials,
+                    "testimonial_link": testimonial_link,
+                    "dele_exp": dele_exp, "dele_detail": dele_detail,
+                    "current_platforms": current_platforms,
+                })
+                go_to(5); st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -1524,22 +1534,22 @@ def render_dynamic_step(step_num: int):
 def _render_step_5_hardcoded():
     show_header("Spanish Coach Application")
     show_step_pill(5)
-    st.subheader("Step 5 \u2014 Teaching Philosophy & Methods")
+    st.subheader("Step 5 \u2014 Teaching Philosophy, Engagement & Motivation")
 
     with st.form("form_step5"):
-        assess_proficiency = st.text_area("1. How do you assess a student's proficiency in Spanish? *",
+        assess_proficiency = st.text_area("1. How do you assess a student's proficiency in Spanish before starting lessons? *",
                                           value=st.session_state["assess_proficiency"], height=100)
-        tailor_lessons = st.text_area("2. How do you tailor lessons for different learning styles and levels? *",
+        tailor_lessons = st.text_area("2. How do you tailor your lessons to suit different learning styles and proficiency levels? *",
                                       value=st.session_state["tailor_lessons"], height=100)
-        successful_lesson = st.text_area("3. Give an example of a particularly successful lesson or course you've delivered. *",
+        successful_lesson = st.text_area("3. Can you give an example of a particularly successful lesson or course you've delivered? What made it effective? *",
                                          value=st.session_state["successful_lesson"], height=100)
-        engaging_online = st.text_area("4. How do you keep online lessons engaging and interactive? *",
+        engaging_online = st.text_area("4. How do you keep online lessons engaging and interactive for students? *",
                                        value=st.session_state["engaging_online"], height=100)
-        student_duration = st.text_input("5. How long do students typically stay with you? *",
-                                         value=st.session_state["student_duration"])
-        motivate_struggling = st.text_area("6. How do you motivate students who are struggling or losing interest? *",
+        student_duration = st.text_area("5. How long do students typically stay with you, and what do you think contributes to student retention? *",
+                                         value=st.session_state["student_duration"], height=100)
+        motivate_struggling = st.text_area("6. What strategies do you use to motivate students who are struggling or losing interest? *",
                                            value=st.session_state["motivate_struggling"], height=100)
-        enjoy_process = st.text_area("7. How do you ensure students are both learning and enjoying the process? *",
+        enjoy_process = st.text_area("7. How do you ensure that students are not only learning effectively but also enjoying the process? *",
                                      value=st.session_state["enjoy_process"], height=100)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1566,51 +1576,43 @@ def _render_step_5_hardcoded():
 def _render_step_6_hardcoded():
     show_header("Spanish Coach Application")
     show_step_pill(6)
-    st.subheader("Step 6 \u2014 Technology & Assessment")
+    st.subheader("Step 6 \u2014 Technology, Assessment & Adapting to Challenges")
 
     with st.form("form_step6"):
-        multimedia = st.radio("1. Do you incorporate multimedia and cultural content into your lessons? *",
-                              ["Yes", "No", "Sometimes"],
-                              index=["Yes","No","Sometimes"].index(st.session_state["multimedia"]),
-                              horizontal=True)
-        multimedia_examples = st.text_area("2. If yes, give examples of multimedia/cultural content you use. (optional)",
-                                           value=st.session_state["multimedia_examples"], height=80)
+        multimedia = st.text_area("1. Do you incorporate multimedia resources or cultural content into your lessons? If yes, can you give examples? *",
+                                  value=st.session_state.get("multimedia_examples", "") or (st.session_state["multimedia"] if st.session_state["multimedia"] not in ["Yes","No","Sometimes"] else ""),
+                                  height=100)
 
-        tech_setup = st.radio("3. Do you have good microphone, webcam, stable internet, and quiet workspace? *",
-                              ["Yes", "No", "Some but not all"],
-                              index=["Yes","No","Some but not all"].index(st.session_state["tech_setup"]),
-                              horizontal=True)
+        tech_setup = st.text_area("2. Do you have a quality microphone, webcam, stable internet connection, and a quiet, well-lit workspace for conducting online classes? *",
+                                  value=st.session_state.get("tech_setup", "") if st.session_state.get("tech_setup","") not in ["Yes","No","Some but not all"] else "",
+                                  height=80)
 
-        sw_options = ["Zoom", "Skype", "Google Meet", "Teams", "Other"]
-        software = st.multiselect("4. Which software do you use for online classes? *",
-                                  sw_options,
-                                  default=[s for s in st.session_state["software"] if s in sw_options])
-        software_other = st.text_input("5. If 'Other', please specify: (optional)",
-                                       value=st.session_state["software_other"])
+        software = st.text_area("3. Which software or platforms do you use for conducting online classes? (e.g., Zoom, Skype, Google Meet, or others) *",
+                                value=st.session_state.get("software_other", "") or (", ".join(st.session_state.get("software",[])) if isinstance(st.session_state.get("software"), list) else ""),
+                                height=80)
 
-        assess_progress = st.text_area("6. How do you assess students' progress, and how often? *",
+        assess_progress = st.text_area("4. How do you assess your students' progress, and how often do you provide updates or evaluations? *",
                                        value=st.session_state["assess_progress"], height=100)
-        feedback_style  = st.text_area("7. How do you provide constructive and motivating feedback? *",
+        feedback_style  = st.text_area("5. How do you provide constructive and motivating feedback to your students? *",
                                        value=st.session_state["feedback_style"], height=100)
-        adapt_teaching  = st.text_area("8. Share an example where you adapted your approach for a challenging student. *",
+        adapt_teaching  = st.text_area("6. Can you share an example of a time when you had to adapt your teaching approach to meet the needs of a particularly challenging student? *",
                                        value=st.session_state["adapt_teaching"], height=100)
-        cultural_lesson = st.text_area("9. Give an example of a cultural lesson essential for Spanish learners. *",
+        cultural_lesson = st.text_area("7. Can you give an example of a cultural lesson or activity that you believe is essential for students learning Spanish? *",
                                        value=st.session_state["cultural_lesson"], height=100)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
 
     if submitted:
-        text_fields = [assess_progress, feedback_style, adapt_teaching, cultural_lesson]
-        filled = sum(1 for f in text_fields if f.strip())
-        if not software:
-            st.error("Please select at least one teaching software.")
-        elif filled / len(text_fields) < 0.70:
-            st.error("Please complete at least 70% of the text fields.")
+        text_fields = [multimedia, tech_setup, software, assess_progress, feedback_style, adapt_teaching, cultural_lesson]
+        filled = sum(1 for f in text_fields if str(f).strip())
+        if filled / len(text_fields) < 0.70:
+            st.error("Please complete at least 70% of the fields in this section.")
         else:
             st.session_state.update({
-                "multimedia": multimedia, "multimedia_examples": multimedia_examples,
-                "tech_setup": tech_setup, "software": software,
-                "software_other": software_other, "assess_progress": assess_progress,
+                "multimedia_examples": multimedia,
+                "tech_setup": tech_setup,
+                "software_other": software,
+                "assess_progress": assess_progress,
                 "feedback_style": feedback_style, "adapt_teaching": adapt_teaching,
                 "cultural_lesson": cultural_lesson,
             })
@@ -1626,13 +1628,13 @@ def _render_step_7_hardcoded():
     st.subheader("Step 7 \u2014 Professional Development & Scenarios")
 
     with st.form("form_step7"):
-        improve_skills   = st.text_area("1. What steps do you take to continuously improve your teaching skills? *",
+        improve_skills   = st.text_area("1. What steps do you take to continuously improve your teaching skills and stay updated with new methodologies? *",
                                         value=st.session_state["improve_skills"], height=100)
-        excited_areas    = st.text_area("2. Are there areas in Spanish teaching you're currently working on or excited to improve? *",
+        excited_areas    = st.text_area("2. Are there any particular areas of Spanish language teaching that you are currently working on or excited to develop further? *",
                                         value=st.session_state["excited_areas"], height=100)
-        grammar_error    = st.text_area("3. A student consistently makes the same grammatical error. How would you address it? *",
+        grammar_error    = st.text_area("3. A student consistently makes the same grammatical error despite corrections. How would you address this issue while keeping the student motivated? *",
                                         value=st.session_state["grammar_error"], height=100)
-        lesson_plan_levels = st.text_area("4. How would you structure a lesson plan for a complete beginner vs. an advanced student? *",
+        lesson_plan_levels = st.text_area("4. How would you structure a lesson plan for a complete beginner compared to an advanced student preparing for a certification exam? *",
                                           value=st.session_state["lesson_plan_levels"], height=120)
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
@@ -1711,12 +1713,22 @@ def render_step_8():
 
         st.markdown("---")
         st.markdown("**Please confirm all of the following to proceed:**")
-        confirm_payment  = st.checkbox("I understand this is a payment-based role and I will be compensated per session/hour",
-                                       value=st.session_state["confirm_payment"])
-        confirm_taxes    = st.checkbox("I understand I am responsible for my own taxes as a freelancer or independent contractor",
-                                       value=st.session_state["confirm_taxes"])
-        confirm_parttime = st.checkbox("I understand this is a part-time role and student assignments are based on availability and demand",
-                                       value=st.session_state["confirm_parttime"])
+
+        confirm_communication = st.checkbox(
+            "Effective communication is key in this role. Our coaches are expected to respond to team emails and student messages within 24 hours on weekdays. Can you confirm if you're able to commit to this?",
+            value=st.session_state["confirm_communication"])
+
+        confirm_payment = st.checkbox(
+            "Payment Basis: Coaches are compensated only for completed online sessions. Onboarding, preparation, waiting periods, or unassigned time are not billable. Do you agree with this term?",
+            value=st.session_state["confirm_payment"])
+
+        confirm_taxes = st.checkbox(
+            "Tax Responsibility: As a freelancer, you are responsible for your own tax obligations based on the laws in your country. Do you fully understand your tax obligations as a freelancer and agree to handle them independently?",
+            value=st.session_state["confirm_taxes"])
+
+        confirm_parttime = st.checkbox(
+            "Part-time role & student assignments: This is a part-time position and should not be considered your primary source of income. Student assignments and volume depend on active enrollment, location, schedule compatibility, time zone and specific dialect preferences. While Lingohabit strives to provide and distribute students fairly and maintain a consistent rotation among coaches, assignment timing and volume cannot be guaranteed. There may be waiting periods between coach onboarding and first student assignment, which can range from several days to a few weeks. Payment begins only after the first confirmed session with an assigned student. Do you understand and agree to these terms?",
+            value=st.session_state["confirm_parttime"])
 
         submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
 
@@ -1728,12 +1740,14 @@ def render_step_8():
             errors.append("Please complete the text fields in this section.")
         if not ideal_rate.strip():
             errors.append("Ideal rate is required.")
+        if not confirm_communication:
+            errors.append("Please confirm the communication commitment.")
         if not confirm_payment:
-            errors.append("Please confirm the payment-based role acknowledgement.")
+            errors.append("Please confirm the payment basis terms.")
         if not confirm_taxes:
-            errors.append("Please confirm the tax responsibility acknowledgement.")
+            errors.append("Please confirm the tax responsibility terms.")
         if not confirm_parttime:
-            errors.append("Please confirm the part-time role acknowledgement.")
+            errors.append("Please confirm the part-time role & student assignment terms.")
 
         if errors:
             for e in errors: st.error(e)
@@ -1743,7 +1757,8 @@ def render_step_8():
                 "follow_process": follow_process, "first_session_win": first_session_win,
                 "session_notes_ok": session_notes_ok, "english_level": english_level,
                 "respond_24h": respond_24h, "ideal_rate": ideal_rate,
-                "hours_per_week": hours_per_week, "confirm_payment": confirm_payment,
+                "hours_per_week": hours_per_week,
+                "confirm_communication": confirm_communication, "confirm_payment": confirm_payment,
                 "confirm_taxes": confirm_taxes, "confirm_parttime": confirm_parttime,
             })
             go_to(9); st.rerun()
@@ -1986,6 +2001,9 @@ def run_submission():
         files_list = [f.name for f in [state["cv_file"]] if f]
         files_list += [f.name for f in state["cert_files"]]
         if state.get("photo_file"): files_list.append(state["photo_file"].name)
+        for tf in state.get("testimonial_files", []):
+            try: files_list.append(tf.name)
+            except Exception: pass
         vmode = state.get("video_mode", "Upload two separate videos (Spanish + English)")
         video_info = ""
         if vmode == "Upload two separate videos (Spanish + English)":
