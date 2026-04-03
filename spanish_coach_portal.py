@@ -8,13 +8,9 @@ import streamlit as st
 import os
 import json
 import re
-import smtplib
+import base64
 import traceback
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -210,8 +206,8 @@ def get_secret(key: str, default=None):
         return default
 
 ANTHROPIC_KEY   = get_secret("anthropic_api_key")
-SENDER_EMAIL    = get_secret("sender_email")
-SENDER_PASSWORD = get_secret("sender_password")
+RESEND_API_KEY  = get_secret("resend_api_key")
+SENDER_EMAIL    = "contact@mydailyspanish.com"
 ADMIN_EMAIL     = "carmina@talkinfrench.com"
 
 
@@ -1062,34 +1058,40 @@ def build_email_html(analysis: dict, folder: Path, files_list: list[str], drive_
 
 
 def send_email(analysis: dict, html_body: str, folder: Path, attach_paths: list[Path]):
-    msg = MIMEMultipart("mixed")
-    msg["From"]    = SENDER_EMAIL
-    msg["To"]      = ADMIN_EMAIL
-    verdict        = analysis.get("verdict", "NEEDS FURTHER REVIEW")
-    coach_name     = analysis.get("coach_name", "Unknown")
-    msg["Subject"] = f"New Spanish Coach Application \u2014 {coach_name} \u2014 {verdict}"
+    import requests as _req
+    verdict    = analysis.get("verdict", "NEEDS FURTHER REVIEW")
+    coach_name = analysis.get("coach_name", "Unknown")
+    subject    = f"New Spanish Coach Application \u2014 {coach_name} \u2014 {verdict}"
 
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
+    attachments = []
     for path in attach_paths:
         if path.exists():
             with open(path, "rb") as f:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment", filename=path.name)
-            msg.attach(part)
+                content = base64.b64encode(f.read()).decode("utf-8")
+            attachments.append({
+                "filename": path.name,
+                "content": content,
+            })
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        server.sendmail(SENDER_EMAIL, ADMIN_EMAIL, msg.as_string())
+    payload = {
+        "from": SENDER_EMAIL,
+        "to": [ADMIN_EMAIL],
+        "subject": subject,
+        "html": html_body,
+    }
+    if attachments:
+        payload["attachments"] = attachments
+
+    resp = _req.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+        json=payload,
+    )
+    resp.raise_for_status()
 
 
 def send_applicant_confirmation(applicant_email: str, applicant_name: str):
-    msg = MIMEMultipart("alternative")
-    msg["From"]    = SENDER_EMAIL
-    msg["To"]      = applicant_email
-    msg["Subject"] = "Your Spanish Coach Application \u2014 Received"
+    import requests as _req
 
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -1114,11 +1116,17 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
 </div>
 </body></html>"""
 
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(SENDER_EMAIL, SENDER_PASSWORD)
-        server.sendmail(SENDER_EMAIL, applicant_email, msg.as_string())
+    resp = _req.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+        json={
+            "from": SENDER_EMAIL,
+            "to": [applicant_email],
+            "subject": "Your Spanish Coach Application \u2014 Received",
+            "html": html,
+        },
+    )
+    resp.raise_for_status()
 
 
 # ---------------------------------------------------------------------------
