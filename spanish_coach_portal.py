@@ -1212,7 +1212,7 @@ def append_to_google_sheet(state: dict, analysis: dict, drive_link: str = ""):
         ]
         ws.append_row(row, value_input_option="USER_ENTERED")
     except Exception as e:
-        st.warning(f"Could not log to Google Sheet: {e}")
+        pass  # Silent fail — don't show to applicant
 
 
 # ---------------------------------------------------------------------------
@@ -2388,10 +2388,10 @@ def generate_application_pdf(state: dict, folder: Path) -> Path:
         def field(self, label, value):
             self.set_font("Helvetica", "B", 10)
             self.set_text_color(50, 50, 50)
-            self.cell(60, 6, f"{label}:", new_x="END")
+            self.cell(0, 6, f"{label}:", new_x="LMARGIN", new_y="NEXT")
             self.set_font("Helvetica", "", 10)
             self.set_text_color(0, 0, 0)
-            self.multi_cell(0, 6, _safe(value))
+            self.multi_cell(0, 5, _safe(value) if _safe(value) else "-")
             self.ln(1)
 
         def qa(self, question, answer):
@@ -2550,15 +2550,7 @@ def run_submission():
         update_status("Saving your files...", 0.1)
         folder = save_submission_files(state)
 
-        # 2. Generate application PDF
-        update_status("Generating application PDF...", 0.18)
-        pdf_path = None
-        try:
-            pdf_path = generate_application_pdf(state, folder)
-        except Exception as e:
-            st.warning(f"PDF generation failed: {e}")
-
-        # 3. Extract document text
+        # 2. Extract document text
         update_status("Processing documents...", 0.25)
         cv_text   = ""
         cert_texts = []
@@ -2578,7 +2570,7 @@ def run_submission():
         try:
             analysis = run_claude_analysis(state, cv_text, cert_texts)
         except Exception as e:
-            st.warning(f"Application review could not be completed: {e}. Proceeding without it.")
+            pass  # Silent fail — don't show to applicant
             analysis = {
                 "coach_name": full_name,
                 "upwork_link": state["profile_link"],
@@ -2614,7 +2606,7 @@ def run_submission():
             update_status("Uploading files (CV, certificates, videos)...", 0.60)
             drive_link = upload_files_to_hosting(folder, full_name)
         except Exception as e:
-            st.warning(f"File upload failed: {e}. Files will be attached to email instead.")
+            pass  # Silent fail — don't show to applicant
             drive_link = ""
 
         # 5. Build file list and video info for email
@@ -2651,7 +2643,7 @@ def run_submission():
                 if zip_size_mb < 24:
                     attach_paths.append(zip_path)
                 else:
-                    st.warning(f"Files are too large for email ({zip_size_mb:.1f} MB). Only CV and certificates will be attached.")
+                    pass  # Too large — attach CV/certs only, don't show to applicant
                     if state["cv_file"]:
                         cv_ext = Path(state["cv_file"].name).suffix
                         attach_paths.append(folder / f"cv{cv_ext}")
@@ -2665,10 +2657,6 @@ def run_submission():
                 for i in range(1, len(state["cert_files"]) + 1):
                     cert_ext = Path(state["cert_files"][i-1].name).suffix
                     attach_paths.append(folder / f"certificate_{i}{cert_ext}")
-
-        # Always attach the PDF
-        if pdf_path and pdf_path.exists():
-            attach_paths.append(pdf_path)
 
         email_sent = True
         email_error = ""
