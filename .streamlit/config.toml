@@ -1,0 +1,9 @@
+[server]
+maxUploadSize = 200
+
+[ui]
+hideTopBar = true
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
