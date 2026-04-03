@@ -241,8 +241,7 @@ else:
 
 secrets_ok = all([
     ANTHROPIC_KEY and ANTHROPIC_KEY != "YOUR_API_KEY_HERE",
-    SENDER_EMAIL and SENDER_EMAIL != "YOUR_GMAIL_HERE",
-    SENDER_PASSWORD and SENDER_PASSWORD != "YOUR_GMAIL_APP_PASSWORD_HERE",
+    RESEND_API_KEY and RESEND_API_KEY != "YOUR_RESEND_API_KEY_HERE",
 ])
 
 # ---------------------------------------------------------------------------
