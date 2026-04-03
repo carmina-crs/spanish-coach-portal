@@ -2237,29 +2237,27 @@ def render_step_9():
         "12. What is the expected response time for coaches to reply to student or team messages on weekdays and weekends?",
     ]
 
-    with st.form("form_step9"):
-        answers = {}
-        for i, q in enumerate(questions, start=1):
-            answers[f"quiz_{i}"] = st.text_area(
-                q,
-                value=st.session_state.get(f"quiz_{i}", ""),
-                height=100,
-                key=f"quiz_input_{i}",
-            )
+    for i, q in enumerate(questions, start=1):
+        answer = st.text_area(
+            q,
+            value=st.session_state.get(f"quiz_{i}", ""),
+            height=100,
+            key=f"quiz_input_{i}",
+        )
+        st.session_state[f"quiz_{i}"] = answer
 
-        submitted = st.form_submit_button("Continue \u2192", type="primary", use_container_width=True)
-
-    if submitted:
-        missing_qs = [f"Question {i}" for i in range(1, 13)
-                      if not answers.get(f"quiz_{i}", "").strip()]
-        if missing_qs:
-            st.error(f"Please answer all quiz questions. Missing: {', '.join(missing_qs)}")
-        else:
-            st.session_state.update(answers)
-            go_to(10); st.rerun()
-
-    if st.button("\u2190 Back", use_container_width=True, key="back9"):
-        go_to(8); st.rerun()
+    col_back, col_next = st.columns(2)
+    with col_back:
+        if st.button("\u2190 Back", use_container_width=True, key="back9"):
+            go_to(8); st.rerun()
+    with col_next:
+        if st.button("Continue \u2192", type="primary", use_container_width=True, key="next9"):
+            missing_qs = [f"Question {i}" for i in range(1, 13)
+                          if not st.session_state.get(f"quiz_{i}", "").strip()]
+            if missing_qs:
+                st.error(f"Please answer all quiz questions. Missing: {', '.join(missing_qs)}")
+            else:
+                go_to(10); st.rerun()
 
     show_save_button(9)
 
