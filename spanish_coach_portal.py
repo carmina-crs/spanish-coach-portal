@@ -214,17 +214,6 @@ SENDER_EMAIL    = get_secret("sender_email")
 SENDER_PASSWORD = get_secret("sender_password")
 ADMIN_EMAIL     = "carmina@talkinfrench.com"
 
-# Google Drive config (optional)
-GOOGLE_SA_JSON = ""
-try:
-    sa_section = st.secrets["google_service_account"]
-    sa_dict = {k: str(v) for k, v in sa_section.items()}
-    if "type" in sa_dict:
-        GOOGLE_SA_JSON = json.dumps(sa_dict)
-except Exception:
-    GOOGLE_SA_JSON = get_secret("google_service_account_json", "")
-GOOGLE_DRIVE_FOLDER = get_secret("google_drive_folder_id", "")
-GOOGLE_SHEET_ID = get_secret("google_sheet_id", "")
 
 # Questions config URL (optional — for editing questions via GitHub)
 QUESTIONS_CONFIG_URL = get_secret("questions_config_url", "")
@@ -1133,85 +1122,66 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
 
 
 # ---------------------------------------------------------------------------
-# Google Sheets logging
+# Application logging (local JSON file)
 # ---------------------------------------------------------------------------
 
-SHEET_HEADERS = [
-    "Submission Date", "Name", "Email", "Age", "Country of Origin",
-    "Current Location", "Time Zone", "Mobile", "WhatsApp",
-    "Address", "Tax Information", "Payment Preference",
-    "Teaching Schedule", "Profile Link",
-    "Native Speaker", "Type of Spanish", "Years Teaching",
-    "Certifications", "Students Taught", "Teach A1-C2", "Levels Detail",
-    "DELE Experience", "DELE Detail", "Current Platforms",
-    "Testimonial Link",
-    "English Level", "Ideal Rate (USD)",
-    "AI Score", "AI Verdict", "AI Summary",
-    "Video Mode", "Video Link",
-    "Files Link",
-]
+APPLICATIONS_FILE = Path(__file__).parent / "applications.json"
 
 
-def append_to_google_sheet(state: dict, analysis: dict, drive_link: str = ""):
-    """Append one row to the Google Sheet for this applicant."""
-    if not GOOGLE_SA_JSON or not GOOGLE_SHEET_ID:
-        return
-
+def save_application_record(state: dict, analysis: dict, drive_link: str = ""):
+    """Append one application record to the local JSON file."""
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-
-        sa_info = json.loads(GOOGLE_SA_JSON)
-        creds = Credentials.from_service_account_info(sa_info, scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-        ])
-        gc = gspread.authorize(creds)
-        sh = gc.open_by_key(GOOGLE_SHEET_ID)
-        ws = sh.sheet1
-
-        # Auto-create headers if sheet is empty
-        existing = ws.get_all_values()
-        if not existing:
-            ws.append_row(SHEET_HEADERS, value_input_option="RAW")
-
         full_name = f"{state.get('first_name', '')} {state.get('last_name', '')}".strip()
-        row = [
-            datetime.now().strftime("%Y-%m-%d %H:%M"),
-            full_name,
-            state.get("email", ""),
-            str(state.get("age", "")),
-            state.get("country_origin", ""),
-            state.get("current_location", ""),
-            state.get("timezone", ""),
-            state.get("mobile", ""),
-            state.get("whatsapp", ""),
-            state.get("address", ""),
-            state.get("tax_info", ""),
-            state.get("payment_pref", ""),
-            state.get("teaching_schedule", ""),
-            state.get("profile_link", ""),
-            state.get("native_spanish", ""),
-            state.get("spanish_type", ""),
-            str(state.get("years_teaching", "")),
-            state.get("certifications", ""),
-            state.get("students_taught", ""),
-            state.get("all_levels", ""),
-            state.get("levels_detail", ""),
-            state.get("dele_exp", ""),
-            state.get("dele_detail", ""),
-            state.get("current_platforms", ""),
-            state.get("testimonial_link", ""),
-            state.get("english_level", ""),
-            state.get("ideal_rate", ""),
-            str(analysis.get("overall_score", "")),
-            analysis.get("verdict", ""),
-            analysis.get("summary", ""),
-            state.get("video_mode", ""),
-            state.get("video_link", ""),
-            drive_link,
-        ]
-        ws.append_row(row, value_input_option="USER_ENTERED")
-    except Exception as e:
+        record = {
+            "submission_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "name": full_name,
+            "email": state.get("email", ""),
+            "age": str(state.get("age", "")),
+            "country_origin": state.get("country_origin", ""),
+            "current_location": state.get("current_location", ""),
+            "timezone": state.get("timezone", ""),
+            "mobile": state.get("mobile", ""),
+            "whatsapp": state.get("whatsapp", ""),
+            "address": state.get("address", ""),
+            "tax_info": state.get("tax_info", ""),
+            "payment_pref": state.get("payment_pref", ""),
+            "teaching_schedule": state.get("teaching_schedule", ""),
+            "profile_link": state.get("profile_link", ""),
+            "native_spanish": state.get("native_spanish", ""),
+            "spanish_type": state.get("spanish_type", ""),
+            "years_teaching": str(state.get("years_teaching", "")),
+            "certifications": state.get("certifications", ""),
+            "students_taught": state.get("students_taught", ""),
+            "all_levels": state.get("all_levels", ""),
+            "levels_detail": state.get("levels_detail", ""),
+            "dele_exp": state.get("dele_exp", ""),
+            "dele_detail": state.get("dele_detail", ""),
+            "current_platforms": state.get("current_platforms", ""),
+            "testimonial_link": state.get("testimonial_link", ""),
+            "english_level": state.get("english_level", ""),
+            "ideal_rate": state.get("ideal_rate", ""),
+            "ai_score": str(analysis.get("overall_score", "")),
+            "ai_verdict": analysis.get("verdict", ""),
+            "ai_summary": analysis.get("summary", ""),
+            "video_mode": state.get("video_mode", ""),
+            "video_link": state.get("video_link", ""),
+            "files_link": drive_link,
+        }
+
+        # Load existing records
+        existing = []
+        if APPLICATIONS_FILE.exists():
+            try:
+                existing = json.loads(APPLICATIONS_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                existing = []
+
+        existing.append(record)
+        APPLICATIONS_FILE.write_text(
+            json.dumps(existing, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
         pass  # Silent fail — don't show to applicant
 
 
@@ -2672,9 +2642,9 @@ def run_submission():
         except Exception:
             pass
 
-        # 7. Log to Google Sheet
-        update_status("Logging application to spreadsheet...", 0.92)
-        append_to_google_sheet(state, analysis, drive_link)
+        # 7. Save application record
+        update_status("Saving application record...", 0.92)
+        save_application_record(state, analysis, drive_link)
 
         update_status("Submission complete!", 1.0)
 
