@@ -10,7 +10,6 @@ import json
 import re
 import base64
 import traceback
-import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
@@ -208,6 +207,8 @@ def get_secret(key: str, default=None):
 
 ANTHROPIC_KEY   = get_secret("anthropic_api_key")
 RESEND_API_KEY  = get_secret("resend_api_key")
+SUPABASE_URL    = get_secret("supabase_url", "")
+SUPABASE_KEY    = get_secret("supabase_key", "")
 SENDER_EMAIL    = "contact@mydailyspanish.com"
 ADMIN_EMAIL     = "carmina@talkinfrench.com"
 
@@ -1130,15 +1131,14 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
 
 
 # ---------------------------------------------------------------------------
-# Application logging (local JSON file)
+# Application logging (Supabase)
 # ---------------------------------------------------------------------------
-
-APPLICATIONS_FILE = Path(__file__).parent / "applications.json"
 
 
 def save_application_record(state: dict, analysis: dict, drive_link: str = ""):
-    """Append one application record to the local JSON file."""
+    """Save one application record to Supabase."""
     try:
+        import requests as _req
         full_name = f"{state.get('first_name', '')} {state.get('last_name', '')}".strip()
         record = {
             "submission_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -1176,21 +1176,19 @@ def save_application_record(state: dict, analysis: dict, drive_link: str = ""):
             "files_link": drive_link,
         }
 
-        # Load existing records
-        existing = []
-        if APPLICATIONS_FILE.exists():
-            try:
-                existing = json.loads(APPLICATIONS_FILE.read_text(encoding="utf-8"))
-            except Exception:
-                existing = []
-
-        existing.append(record)
-        APPLICATIONS_FILE.write_text(
-            json.dumps(existing, indent=2, ensure_ascii=False),
-            encoding="utf-8",
+        resp = _req.post(
+            f"{SUPABASE_URL}/rest/v1/applications",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json=record,
         )
+        resp.raise_for_status()
     except Exception:
-        pass  # Silent fail — don't show to applicant
+        pass  # Silent fail — email is the primary notification
 
 
 # ---------------------------------------------------------------------------
@@ -2711,100 +2709,6 @@ def render_success():
 
 
 # ===========================================================================
-# EMBEDDED DASHBOARD (admin only)
-# ===========================================================================
-
-def render_dashboard():
-    """Show application records from applications.json inside the main app."""
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#1a5276,#2980b9);color:white;
-    padding:1.5rem 2rem;border-radius:10px;margin-bottom:1.5rem;">
-    <h2 style="color:white;margin:0;">Coach Applications Dashboard</h2>
-    <p style="color:#d6eaf8;margin:0.3rem 0 0 0;">My Daily Spanish</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Load data
-    records = []
-    if APPLICATIONS_FILE.exists():
-        try:
-            records = json.loads(APPLICATIONS_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            records = []
-
-    if not records:
-        st.info("No applications recorded yet. Applications will appear here "
-                "after coaches submit through the portal.")
-        return
-
-    df = pd.DataFrame(records)
-
-    # Column labels
-    col_labels = {
-        "submission_date": "Submission Date", "name": "Name", "email": "Email",
-        "age": "Age", "country_origin": "Country of Origin",
-        "current_location": "Current Location", "timezone": "Time Zone",
-        "years_teaching": "Years Teaching", "ai_score": "Score",
-        "ai_verdict": "Verdict", "ai_summary": "Summary",
-        "ideal_rate": "Ideal Rate (USD)", "native_spanish": "Native Speaker",
-        "spanish_type": "Type of Spanish", "certifications": "Certifications",
-        "students_taught": "Students Taught", "english_level": "English Level",
-        "current_platforms": "Current Platforms", "video_link": "Video Link",
-        "files_link": "Files Link",
-    }
-    df.rename(columns=col_labels, inplace=True)
-
-    # Metrics
-    total = len(df)
-    verdicts = df.get("Verdict", pd.Series(dtype=str)).str.strip().str.upper()
-    recommended = (verdicts == "RECOMMENDED").sum()
-    maybe = (verdicts == "MAYBE").sum()
-    not_rec = (verdicts == "NOT RECOMMENDED").sum()
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total", total)
-    c2.metric("Recommended", recommended)
-    c3.metric("Maybe", maybe)
-    c4.metric("Not Recommended", not_rec)
-
-    st.markdown("")
-
-    # Filters
-    search = st.text_input("Search (name or email):")
-    filtered = df.copy()
-    if search:
-        mask = (
-            filtered.get("Name", pd.Series(dtype=str)).str.contains(search, case=False, na=False) |
-            filtered.get("Email", pd.Series(dtype=str)).str.contains(search, case=False, na=False)
-        )
-        filtered = filtered[mask]
-
-    # Summary table
-    summary_cols = ["Submission Date", "Name", "Email", "Country of Origin",
-                    "Years Teaching", "Score", "Verdict", "Ideal Rate (USD)"]
-    available = [c for c in summary_cols if c in filtered.columns]
-    st.dataframe(filtered[available], use_container_width=True, hide_index=True)
-
-    # Detail expanders
-    if not filtered.empty:
-        st.markdown("### Applicant Details")
-        for i, row in filtered.iterrows():
-            name = row.get("Name", "Unknown")
-            verdict = str(row.get("Verdict", "")).strip()
-            label = f"{name} — {verdict}" if verdict else name
-            with st.expander(label):
-                for col in filtered.columns:
-                    val = str(row[col]).strip()
-                    if val and val != "nan":
-                        st.markdown(f"**{col}:** {val}")
-
-    # CSV download
-    csv = filtered.to_csv(index=False)
-    st.download_button("Download as CSV", csv,
-                       f"applications_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv")
-
-
-# ===========================================================================
 # MAIN ROUTER
 # ===========================================================================
 
@@ -2832,11 +2736,6 @@ def main():
     if ADMIN_MODE:
         with st.sidebar:
             st.markdown("### Admin Panel")
-            admin_page = st.radio(
-                "View:", ["Application Portal", "Dashboard"],
-                key="admin_page",
-            )
-            st.markdown("---")
             if QUESTIONS_CONFIG_URL:
                 st.markdown(f"[Edit questions_config.json]({QUESTIONS_CONFIG_URL})")
             else:
@@ -2852,10 +2751,6 @@ def main():
 - `multiselect` — Multi-select checkboxes
 - `number` — Number input
             """)
-
-        if admin_page == "Dashboard":
-            render_dashboard()
-            return
 
     step = st.session_state.get("step", 0)
 

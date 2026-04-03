@@ -1,7 +1,7 @@
 """
 My Daily Spanish – Coach Applications Dashboard
 ================================================
-Reads application records from applications.json (written by the main portal app).
+Reads application records from Supabase (written by the main portal app).
 
 Run locally:
     streamlit run dashboard.py
@@ -9,14 +9,14 @@ Run locally:
 
 import streamlit as st
 import pandas as pd
-import json
-from pathlib import Path
+import requests
 from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-APPLICATIONS_FILE = Path(__file__).parent / "applications.json"
+SUPABASE_URL = st.secrets.get("supabase_url", "")
+SUPABASE_KEY = st.secrets.get("supabase_key", "")
 
 st.set_page_config(
     page_title="Coach Applications Dashboard",
@@ -107,15 +107,24 @@ COLUMN_LABELS = {
 # ---------------------------------------------------------------------------
 
 def load_applications():
-    """Load application records from the local JSON file."""
-    if not APPLICATIONS_FILE.exists():
+    """Load application records from Supabase."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
         return pd.DataFrame()
 
     try:
-        data = json.loads(APPLICATIONS_FILE.read_text(encoding="utf-8"))
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/applications?select=*&order=id.desc",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
         if not data:
             return pd.DataFrame()
         df = pd.DataFrame(data)
+        df.drop(columns=["id"], errors="ignore", inplace=True)
         df.rename(columns=COLUMN_LABELS, inplace=True)
         return df
     except Exception:
