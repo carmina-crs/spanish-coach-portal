@@ -1174,6 +1174,48 @@ def save_application_record(state: dict, analysis: dict, drive_link: str = ""):
             "video_mode": state.get("video_mode", ""),
             "video_link": state.get("video_link", ""),
             "files_link": drive_link,
+            # Step 5 — Teaching Philosophy
+            "assess_proficiency": state.get("assess_proficiency", ""),
+            "tailor_lessons": state.get("tailor_lessons", ""),
+            "successful_lesson": state.get("successful_lesson", ""),
+            "engaging_online": state.get("engaging_online", ""),
+            "student_duration": state.get("student_duration", ""),
+            "motivate_struggling": state.get("motivate_struggling", ""),
+            "enjoy_process": state.get("enjoy_process", ""),
+            # Step 6 — Technology & Assessment
+            "multimedia": state.get("multimedia_examples", "") or state.get("multimedia", ""),
+            "tech_setup": state.get("tech_setup", ""),
+            "software": state.get("software_other", "") or (", ".join(state["software"]) if isinstance(state.get("software"), list) else state.get("software", "")),
+            "assess_progress": state.get("assess_progress", ""),
+            "feedback_style": state.get("feedback_style", ""),
+            "adapt_teaching": state.get("adapt_teaching", ""),
+            "cultural_lesson": state.get("cultural_lesson", ""),
+            # Step 7 — Professional Development
+            "improve_skills": state.get("improve_skills", ""),
+            "excited_areas": state.get("excited_areas", ""),
+            "grammar_error": state.get("grammar_error", ""),
+            "lesson_plan_levels": state.get("lesson_plan_levels", ""),
+            # Step 8 — Team & Communication
+            "handle_criticism": state.get("handle_criticism", ""),
+            "teamwork": state.get("teamwork", ""),
+            "follow_process": state.get("follow_process", ""),
+            "first_session_win": state.get("first_session_win", ""),
+            "session_notes_ok": state.get("session_notes_ok", ""),
+            "respond_24h": state.get("respond_24h", ""),
+            "hours_per_week": str(state.get("hours_per_week", "")),
+            # Step 9 — Quiz
+            "quiz_1": state.get("quiz_1", ""),
+            "quiz_2": state.get("quiz_2", ""),
+            "quiz_3": state.get("quiz_3", ""),
+            "quiz_4": state.get("quiz_4", ""),
+            "quiz_5": state.get("quiz_5", ""),
+            "quiz_6": state.get("quiz_6", ""),
+            "quiz_7": state.get("quiz_7", ""),
+            "quiz_8": state.get("quiz_8", ""),
+            "quiz_9": state.get("quiz_9", ""),
+            "quiz_10": state.get("quiz_10", ""),
+            "quiz_11": state.get("quiz_11", ""),
+            "quiz_12": state.get("quiz_12", ""),
         }
 
         resp = _req.post(

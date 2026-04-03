@@ -100,6 +100,48 @@ COLUMN_LABELS = {
     "video_mode": "Video Mode",
     "video_link": "Video Link",
     "files_link": "Files Link",
+    # Step 5 — Teaching Philosophy
+    "assess_proficiency": "How do you assess proficiency?",
+    "tailor_lessons": "How do you tailor lessons?",
+    "successful_lesson": "Successful lesson example",
+    "engaging_online": "Keeping online lessons engaging",
+    "student_duration": "Student retention",
+    "motivate_struggling": "Motivating struggling students",
+    "enjoy_process": "What do you enjoy about teaching?",
+    # Step 6 — Technology & Assessment
+    "multimedia": "Multimedia & cultural content",
+    "tech_setup": "Tech setup (mic, webcam, internet)",
+    "software": "Software / platforms used",
+    "assess_progress": "Assessing student progress",
+    "feedback_style": "Feedback style",
+    "adapt_teaching": "Adapting teaching approach",
+    "cultural_lesson": "Cultural lesson example",
+    # Step 7 — Professional Development
+    "improve_skills": "How do you improve your skills?",
+    "excited_areas": "Excited areas of teaching",
+    "grammar_error": "Grammar error approach",
+    "lesson_plan_levels": "Lesson plan for different levels",
+    # Step 8 — Team & Communication
+    "handle_criticism": "Handling criticism",
+    "teamwork": "Teamwork comfort",
+    "follow_process": "Comfortable following set process",
+    "first_session_win": "First session quick win",
+    "session_notes_ok": "Session notes & tracker updates",
+    "respond_24h": "Respond within 24h",
+    "hours_per_week": "Hours per week",
+    # Step 9 — Quiz
+    "quiz_1": "Quiz Q1",
+    "quiz_2": "Quiz Q2",
+    "quiz_3": "Quiz Q3",
+    "quiz_4": "Quiz Q4",
+    "quiz_5": "Quiz Q5",
+    "quiz_6": "Quiz Q6",
+    "quiz_7": "Quiz Q7",
+    "quiz_8": "Quiz Q8",
+    "quiz_9": "Quiz Q9",
+    "quiz_10": "Quiz Q10",
+    "quiz_11": "Quiz Q11",
+    "quiz_12": "Quiz Q12",
 }
 
 # ---------------------------------------------------------------------------
@@ -260,7 +302,8 @@ def render_detail_view(df):
         ],
         "Employment Details": [
             "Tax Information", "Payment Preference", "Teaching Schedule",
-            "Profile Link",
+            "Profile Link", "English Level", "Ideal Rate (USD)",
+            "Hours per week",
         ],
         "Teaching Background": [
             "Native Speaker", "Type of Spanish", "Years Teaching",
@@ -268,10 +311,33 @@ def render_detail_view(df):
             "DELE Experience", "DELE Detail", "Current Platforms",
             "Testimonial Link",
         ],
-        "Preferences": [
-            "English Level", "Ideal Rate (USD)",
+        "Teaching Philosophy (Step 5)": [
+            "How do you assess proficiency?", "How do you tailor lessons?",
+            "Successful lesson example", "Keeping online lessons engaging",
+            "Student retention", "Motivating struggling students",
+            "What do you enjoy about teaching?",
         ],
-        "Assessment": [
+        "Technology & Assessment (Step 6)": [
+            "Multimedia & cultural content", "Tech setup (mic, webcam, internet)",
+            "Software / platforms used", "Assessing student progress",
+            "Feedback style", "Adapting teaching approach",
+            "Cultural lesson example",
+        ],
+        "Professional Development (Step 7)": [
+            "How do you improve your skills?", "Excited areas of teaching",
+            "Grammar error approach", "Lesson plan for different levels",
+        ],
+        "Team & Communication (Step 8)": [
+            "Handling criticism", "Teamwork comfort",
+            "Comfortable following set process", "First session quick win",
+            "Session notes & tracker updates", "Respond within 24h",
+        ],
+        "Program Understanding Quiz (Step 9)": [
+            "Quiz Q1", "Quiz Q2", "Quiz Q3", "Quiz Q4",
+            "Quiz Q5", "Quiz Q6", "Quiz Q7", "Quiz Q8",
+            "Quiz Q9", "Quiz Q10", "Quiz Q11", "Quiz Q12",
+        ],
+        "AI Assessment": [
             "Score", "Verdict", "Summary",
         ],
         "Media & Files": [
