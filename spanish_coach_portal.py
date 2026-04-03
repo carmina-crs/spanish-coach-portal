@@ -1075,7 +1075,7 @@ def send_email(analysis: dict, html_body: str, folder: Path, attach_paths: list[
             })
 
     payload = {
-        "from": SENDER_EMAIL,
+        "from": f"My Daily Spanish <{SENDER_EMAIL}>",
         "to": [ADMIN_EMAIL],
         "subject": subject,
         "html": html_body,
@@ -1121,7 +1121,7 @@ def send_applicant_confirmation(applicant_email: str, applicant_name: str):
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
         json={
-            "from": SENDER_EMAIL,
+            "from": f"My Daily Spanish <{SENDER_EMAIL}>",
             "to": [applicant_email],
             "subject": "Your Spanish Coach Application \u2014 Received",
             "html": html,
