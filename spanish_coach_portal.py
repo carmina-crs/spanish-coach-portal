@@ -1174,6 +1174,9 @@ def save_application_record(state: dict, analysis: dict, drive_link: str = ""):
             "video_mode": state.get("video_mode", ""),
             "video_link": state.get("video_link", ""),
             "files_link": drive_link,
+            "has_cv": "Yes" if state.get("cv_file") is not None else "No",
+            "has_certificates": "Yes" if state.get("cert_files") else "No",
+            "has_video": "Yes" if (state.get("video_spanish") or state.get("video_combined") or state.get("video_link", "").strip()) else "No",
             # Step 5 — Teaching Philosophy
             "assess_proficiency": state.get("assess_proficiency", ""),
             "tailor_lessons": state.get("tailor_lessons", ""),
